@@ -10,7 +10,11 @@
 ) {
     $succeededCompositionElements = {{ availableAmount }};
     $validatorComponentIndex = 0;
-    $originalModelData = $value;
+    if (is_object($value) && method_exists($value, 'toArray')) {
+        $originalModelData = $value->toArray();
+    } else {
+        $originalModelData = $value;
+    }
     $proposedValue = null;
     $modifiedValues = [];
 
