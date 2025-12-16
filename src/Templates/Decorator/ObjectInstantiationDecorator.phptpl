@@ -1,6 +1,18 @@
 (function ($value) {
     try {
-        return is_array($value) ? new {{ className }}($value) : $value;
+        if ($value instanceof {{ className }}) {
+            return $value;
+        }
+
+        if (is_object($value) && method_exists($value, 'toArray')) {
+            return new {{ className }}($value->toArray());
+        }
+
+        if (is_array($value)) {
+            return new {{ className }}($value);
+        }
+
+        return $value;
     } catch (\Exception $instantiationException) {
         {% if nestedProperty %}
             {{ viewHelper.validationError(nestedValidator) }}
