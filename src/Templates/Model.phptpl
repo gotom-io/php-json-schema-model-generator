@@ -28,7 +28,7 @@ class {{ schema.getClassName() }} {% if schema.getInterfaces() %}implements {{ v
     {% if schema.getTraits() %}use {{ viewHelper.joinClassNames(schema.getTraits()) }};{% endif %}
 
     {% foreach schema.getProperties() as property %}
-        /**{% if viewHelper.getTypeHintAnnotation(property, true) %} @var {{ viewHelper.getTypeHintAnnotation(property, true) }}{% endif %}{% if property.getDescription() %} {{ property.getDescription() }}{% endif %} */
+        /**{% if viewHelper.getTypeHintAnnotation(property, true) %} @var {{ viewHelper.getTypeHintAnnotation(property, true) }}{% endif %}{% if property.getDescription() %} {{ property.getDescription() }}{% endif %} */{{ viewHelper.getSerializationAttribute(property) }}
         {% if property.isInternal() %}private{% else %}protected{% endif %} ${{ property.getAttribute(true) }}{% if not viewHelper.isNull(property.getDefaultValue()) %} = {{ property.getDefaultValue() }}{% endif %};
     {% endforeach %}
     /** @var array */
