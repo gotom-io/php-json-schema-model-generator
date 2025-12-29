@@ -89,7 +89,7 @@ class EnumPostProcessor extends PostProcessor
             $schema->addUsedClass($fqcn);
             $property->setType($inputType, new PropertyType($name, !$property->isRequired()), true);
 
-            if ($property->getDefaultValue() && in_array($property->getJsonSchema()->getJson()['default'], $values)) {
+            if ($property->getDefaultValue()) {
                 $defaultValueEnumCaseName = $this->getCaseName($property->getJsonSchema()->getJson()['default'], $schema->getJsonSchema());
                 $property->setDefaultValue("$name::{$defaultValueEnumCaseName}", true);
             }
@@ -314,6 +314,6 @@ class EnumPostProcessor extends PostProcessor
 
         $fqcn = $this->generatedEnums[$enumSignature]['fqcn'];
         $enumName = $this->generatedEnums[$enumSignature]['name'];
-        return [$enumName, $fqcn];
+        return [$enumName, $fqcn, $values];
     }
 }
