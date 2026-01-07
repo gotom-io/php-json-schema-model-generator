@@ -4,59 +4,50 @@ declare(strict_types=1);
 
 namespace PHPModelGenerator\Tests\Issues\Issue;
 
-use PHPModelGenerator\Exception\Dependency\InvalidSchemaDependencyException;
-use PHPModelGenerator\Exception\Generic\InvalidTypeException;
-use PHPModelGenerator\Exception\Object\RequiredValueException;
-use PHPModelGenerator\Model\GeneratorConfiguration;
-use PHPModelGenerator\Model\Schema;
+use PHPModelGenerator\Exception\Arrays\InvalidItemException;
 use PHPModelGenerator\ModelGenerator;
-use PHPModelGenerator\SchemaProcessor\Hook\SchemaHookInterface;
 use PHPModelGenerator\SchemaProcessor\PostProcessor\EnumPostProcessor;
-use PHPModelGenerator\SchemaProcessor\PostProcessor\PostProcessor;
 use PHPModelGenerator\Tests\Issues\AbstractIssueTestCase;
-use PHPModelGenerator\Tests\Issues\Issue\output\Models\Issue104Test_6948130ae6bdf;
 
 class Issue105Test extends AbstractIssueTestCase
 {
-    public function testCompositionValidatorOnPropertyGeneratesNoDynamicProperty(): void
+    /**
+     * @requires PHP >= 8.1
+     */
+    public function testEnumInComposition(): void
     {
-        $generatorConfiguration = (new GeneratorConfiguration())->setImmutable(false);
         $this->modifyModelGenerator = static function (ModelGenerator $modelGenerator) : void {
             $modelGenerator->addPostProcessor(new EnumPostProcessor(
                 implode(DIRECTORY_SEPARATOR, [sys_get_temp_dir(), 'PHPModelGeneratorTest', 'Enum']),
                 'Enum',
                 true,
-
             ));
         };
-        $className = $this->generateClassFromFile('issue105schema.json', $generatorConfiguration);
-
+        $className = $this->generateClassFromFile('enumInComposition.json');
 
         $data = [
-            'media_buy_deliveries' => [
+            'by_package' => [
                 [
-                    'by_package' => [
-                        [
-                            'impressions' => 250000,
-                            'delivery_status' => 'completed',
-                        ],
-                    ],
-                ],
-                [
-                    'by_package' => [
-                        [
-                            'impressions' => 175000,
-                            'delivery_status' => 'flight_ended',
-                        ],
-                    ],
+                    'impressions' => 250000,
+                    'delivery_status' => 'completed',
                 ],
             ],
         ];
 
-
         $object = new $className($data);
 
-        $this->assertSame('completed', $object->getMediaBuyDeliveries()[0]->getByPackage()[0]->getDeliveryStatus()->value);
+        $this->assertCount(1, $object->getByPackage());
+        $this->assertSame('completed', $object->getByPackage()[0]->getDeliveryStatus()->value);
+        $this->assertSame(250000, $object->getByPackage()[0]->getImpressions());
 
+        $this->expectException(InvalidItemException::class);
+        $this->expectExceptionMessage('"invalid" is not a valid backing value for enum');
+        new $className([
+            'by_package' => [
+                [
+                    'delivery_status' => 'invalid',
+                ],
+            ],
+        ]);
     }
 }

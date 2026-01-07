@@ -74,7 +74,32 @@ class EnumPostProcessor extends PostProcessor
 
             $this->checkForExistingTransformingFilter($property);
 
-            [$enumName, $fqcn] = $this->createOrReadEnumFromCache($json, $schema, $property, $generatorConfiguration);
+            $values = $json['enum'];
+            $enumSignature = ArrayHash::hash($json, ['enum', 'enum-map', 'title', '$id']);
+            $enumName = $json['title']
+                ?? basename($json['$id'] ?? $schema->getClassName() . ucfirst($property->getName()));
+
+            if (!isset($this->generatedEnums[$enumSignature])) {
+                $this->generatedEnums[$enumSignature] = [
+                    'name' => $enumName,
+                    'fqcn' => $this->renderEnum(
+                        $generatorConfiguration,
+                        $schema->getJsonSchema(),
+                        $enumName,
+                        $values,
+                        $json['enum-map'] ?? null,
+                    ),
+                ];
+            } else {
+                if ($generatorConfiguration->isOutputEnabled()) {
+                    // @codeCoverageIgnoreStart
+                    echo "Duplicated signature $enumSignature for enum $enumName." .
+                        " Redirecting to {$this->generatedEnums[$enumSignature]['name']}\n";
+                    // @codeCoverageIgnoreEnd
+                }
+            }
+
+            $fqcn = $this->generatedEnums[$enumSignature]['fqcn'];
             $name = substr($fqcn, strrpos($fqcn, "\\") + 1);
 
             $inputType = $property->getType();
@@ -90,8 +115,8 @@ class EnumPostProcessor extends PostProcessor
             $property->setType($inputType, new PropertyType($name, !$property->isRequired()), true);
 
             if ($property->getDefaultValue()) {
-                $defaultValueEnumCaseName = $this->getCaseName($property->getJsonSchema()->getJson()['default'], $schema->getJsonSchema());
-                $property->setDefaultValue("$name::{$defaultValueEnumCaseName}", true);
+                $caseName = $this->getCaseName($json['enum-map'] ?? null, $json['default'], $property->getJsonSchema());
+                $property->setDefaultValue("$name::$caseName", true);
             }
 
             // remove the enum validator as the validation is performed by the PHP enum
@@ -102,8 +127,9 @@ class EnumPostProcessor extends PostProcessor
             // if an enum value is provided the transforming filter will add a value pass through. As the filter doesn't
             // know the exact enum type the pass through allows every UnitEnum instance. Consequently add a validator to
             // avoid wrong enums by validating against the generated enum
+            $schema->addUsedClass($fqcn);
             $property->addValidator(
-                new class ($property, $enumName) extends PropertyValidator {
+                new class ($property, $name) extends PropertyValidator {
                     public function __construct(PropertyInterface $property, string $enumName)
                     {
                         parent::__construct(
@@ -129,7 +155,6 @@ class EnumPostProcessor extends PostProcessor
 
             if ($validator instanceof FilterValidator
                 && $validator->getFilter() instanceof TransformingFilterInterface
-                && $validator->getFilter()->getToken() !== EnumFilter::FILTER_TOKEN_GENERATOR_ENUM
             ) {
                 throw new SchemaException(sprintf(
                     "Can't apply enum filter to an already transformed value on property %s in file %s",
@@ -211,7 +236,12 @@ class EnumPostProcessor extends PostProcessor
         array $values,
         ?array $map,
     ): string {
-        $cases = $this->valuesToCases($values, $map, $jsonSchema);
+        $cases = [];
+        $name = ucfirst(preg_replace('/\W/', '', ucwords($name, '_-. ')));
+
+        foreach ($values as $value) {
+            $cases[$this->getCaseName($map, $value, $jsonSchema)] = var_export($value, true);
+        }
 
         $backedType = null;
         switch ($this->getArrayTypes($values)) {
@@ -256,64 +286,14 @@ class EnumPostProcessor extends PostProcessor
         return $fqcn;
     }
 
-    private function valuesToCases(array $values, ?array $map, JsonSchema $jsonSchema): array
+    private function getCaseName(?array $map, mixed $value, JsonSchema $jsonSchema): string
     {
-        $cases = [];
-
-        foreach ($values as $value) {
-            $name = $map ? array_search($value, $map, true) : $value;
-            $caseName = $this->getCaseName($name, $jsonSchema);
-
-            $cases[$caseName] = var_export($value, true);
-        }
-        return $cases;
-    }
-
-    private function getCaseName(string $name, JsonSchema $jsonSchema): string
-    {
-        $caseName = ucfirst(NormalizedName::from($name, $jsonSchema));
+        $caseName = ucfirst(NormalizedName::from($map ? array_search($value, $map, true) : $value, $jsonSchema));
 
         if (preg_match('/^\d/', $caseName) === 1) {
             $caseName = "_$caseName";
         }
+
         return $caseName;
-    }
-
-    private function createOrReadEnumFromCache(
-        array $json,
-        Schema $schema,
-        PropertyInterface $property,
-        GeneratorConfiguration $generatorConfiguration,
-    ): array
-    {
-        $values = $json['enum'];
-        $enumSignature = ArrayHash::hash($json, ['enum', 'enum-map', 'title', '$id']);
-        $enumName = $json['title']
-            ?? basename($json['$id'] ?? $schema->getClassName() . ucfirst($property->getName()));
-        $enumName = preg_replace('#\W#', '_', $enumName);
-
-        if (!isset($this->generatedEnums[$enumSignature])) {
-            $this->generatedEnums[$enumSignature] = [
-                'name' => $enumName,
-                'fqcn' => $this->renderEnum(
-                    $generatorConfiguration,
-                    $schema->getJsonSchema(),
-                    $enumName,
-                    $values,
-                    $json['enum-map'] ?? null,
-                ),
-            ];
-        } else {
-            if ($generatorConfiguration->isOutputEnabled()) {
-                // @codeCoverageIgnoreStart
-                echo "Duplicated signature $enumSignature for enum $enumName." .
-                    " Redirecting to {$this->generatedEnums[$enumSignature]['name']}\n";
-                // @codeCoverageIgnoreEnd
-            }
-        }
-
-        $fqcn = $this->generatedEnums[$enumSignature]['fqcn'];
-        $enumName = $this->generatedEnums[$enumSignature]['name'];
-        return [$enumName, $fqcn, $values];
     }
 }
