@@ -155,6 +155,7 @@ class EnumPostProcessor extends PostProcessor
 
             if ($validator instanceof FilterValidator
                 && $validator->getFilter() instanceof TransformingFilterInterface
+                && $validator->getFilter()->getToken() !== EnumFilter::FILTER_TOKEN_GENERATOR_ENUM
             ) {
                 throw new SchemaException(sprintf(
                     "Can't apply enum filter to an already transformed value on property %s in file %s",
