@@ -13,16 +13,13 @@
     ],
     "repositories": [
         {
-            "type": "path",
-            "url": "../php-json-schema-model-generator-production",
-            "options": {
-                "symlink": true
-            }
+            "type": "vcs",
+            "url": "https://github.com/gotom-io/php-json-schema-model-generator-production.git"
         }
     ],
     "require": {
         "symfony/polyfill-php81": "^1.28",
-        "wol-soft/php-json-schema-model-generator-production": "*",
+        "wol-soft/php-json-schema-model-generator-production": "dev-master",
         "wol-soft/php-micro-template": "^1.10.0",
 
         "php": ">=8.0",
