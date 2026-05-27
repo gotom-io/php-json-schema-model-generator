@@ -4,10 +4,13 @@ declare(strict_types=1);
 
 namespace PHPModelGenerator\Model\Property;
 
+use PHPModelGenerator\Attributes\SchemaName;
 use PHPModelGenerator\Exception\SchemaException;
+use PHPModelGenerator\Model\Attributes\PhpAttribute;
+use PHPModelGenerator\Model\GeneratorConfiguration;
+use PHPModelGenerator\Model\Schema;
 use PHPModelGenerator\Model\SchemaDefinition\JsonSchema;
 use PHPModelGenerator\Model\SchemaDefinition\ResolvedDefinitionsCollection;
-use PHPModelGenerator\Model\Schema;
 use PHPModelGenerator\Model\Validator\PropertyValidatorInterface;
 use PHPModelGenerator\PropertyProcessor\Decorator\Property\PropertyDecoratorInterface;
 use PHPModelGenerator\PropertyProcessor\Decorator\TypeHint\TypeHintDecoratorInterface;
@@ -61,7 +64,9 @@ class PropertyProxy extends AbstractProperty
         ?PropertyType $outputType = null,
         bool $reset = false,
     ): PropertyInterface {
-        return $this->getProperty()->setType($type, $outputType);
+        $this->getProperty()->setType($type, $outputType, $reset);
+
+        return $this;
     }
 
     /**
@@ -77,7 +82,9 @@ class PropertyProxy extends AbstractProperty
      */
     public function addTypeHintDecorator(TypeHintDecoratorInterface $typeHintDecorator): PropertyInterface
     {
-        return $this->getProperty()->addTypeHintDecorator($typeHintDecorator);
+        $this->getProperty()->addTypeHintDecorator($typeHintDecorator);
+
+        return $this;
     }
 
     /**
@@ -88,12 +95,38 @@ class PropertyProxy extends AbstractProperty
         return $this->getProperty()->getDescription();
     }
 
+    public function getComment(): ?string
+    {
+        return $this->getProperty()->getComment();
+    }
+
+    public function setComment(string $comment): PropertyInterface
+    {
+        $this->getProperty()->setComment($comment);
+
+        return $this;
+    }
+
+    public function getExamples(): array
+    {
+        return $this->getProperty()->getExamples();
+    }
+
+    public function setExamples(array $examples): PropertyInterface
+    {
+        $this->getProperty()->setExamples($examples);
+
+        return $this;
+    }
+
     /**
      * @inheritdoc
      */
     public function addValidator(PropertyValidatorInterface $validator, int $priority = 99): PropertyInterface
     {
-        return $this->getProperty()->addValidator($validator, $priority);
+        $this->getProperty()->addValidator($validator, $priority);
+
+        return $this;
     }
 
     /**
@@ -109,7 +142,9 @@ class PropertyProxy extends AbstractProperty
      */
     public function filterValidators(callable $filter): PropertyInterface
     {
-        return $this->getProperty()->filterValidators($filter);
+        $this->getProperty()->filterValidators($filter);
+
+        return $this;
     }
 
     /**
@@ -129,7 +164,19 @@ class PropertyProxy extends AbstractProperty
      */
     public function addDecorator(PropertyDecoratorInterface $decorator): PropertyInterface
     {
-        return $this->getProperty()->addDecorator($decorator);
+        $this->getProperty()->addDecorator($decorator);
+
+        return $this;
+    }
+
+    /**
+     * @inheritdoc
+     */
+    public function filterDecorators(callable $filter): PropertyInterface
+    {
+        $this->getProperty()->filterDecorators($filter);
+
+        return $this;
     }
 
     /**
@@ -157,7 +204,9 @@ class PropertyProxy extends AbstractProperty
      */
     public function setRequired(bool $isPropertyRequired): PropertyInterface
     {
-        return $this->getProperty()->setRequired($isPropertyRequired);
+        $this->getProperty()->setRequired($isPropertyRequired);
+
+        return $this;
     }
 
     /**
@@ -173,7 +222,9 @@ class PropertyProxy extends AbstractProperty
      */
     public function setReadOnly(bool $isPropertyReadOnly): PropertyInterface
     {
-        return $this->getProperty()->setReadOnly($isPropertyReadOnly);
+        $this->getProperty()->setReadOnly($isPropertyReadOnly);
+
+        return $this;
     }
 
     /**
@@ -187,9 +238,29 @@ class PropertyProxy extends AbstractProperty
     /**
      * @inheritdoc
      */
+    public function setWriteOnly(bool $isPropertyWriteOnly): PropertyInterface
+    {
+        $this->getProperty()->setWriteOnly($isPropertyWriteOnly);
+
+        return $this;
+    }
+
+    /**
+     * @inheritdoc
+     */
+    public function isWriteOnly(): bool
+    {
+        return $this->getProperty()->isWriteOnly();
+    }
+
+    /**
+     * @inheritdoc
+     */
     public function setDefaultValue($defaultValue, bool $raw = false): PropertyInterface
     {
-        return $this->getProperty()->setDefaultValue($defaultValue, $raw);
+        $this->getProperty()->setDefaultValue($defaultValue, $raw);
+
+        return $this;
     }
 
     /**
@@ -205,7 +276,9 @@ class PropertyProxy extends AbstractProperty
      */
     public function setNestedSchema(Schema $schema): PropertyInterface
     {
-        return $this->getProperty()->setNestedSchema($schema);
+        $this->getProperty()->setNestedSchema($schema);
+
+        return $this;
     }
 
     /**
@@ -229,7 +302,9 @@ class PropertyProxy extends AbstractProperty
      */
     public function setInternal(bool $isPropertyInternal): PropertyInterface
     {
-        return $this->getProperty()->setInternal($isPropertyInternal);
+        $this->getProperty()->setInternal($isPropertyInternal);
+
+        return $this;
     }
 
     /**
@@ -238,5 +313,34 @@ class PropertyProxy extends AbstractProperty
     public function isInternal(): bool
     {
         return $this->getProperty()->isInternal();
+    }
+
+    /**
+     * @inheritdoc
+     */
+    public function addAttribute(
+        PhpAttribute $attribute,
+        ?GeneratorConfiguration $generatorConfiguration = null,
+        ?int $enablementFlag = null,
+    ): static {
+        $this->getProperty()->addAttribute($attribute);
+
+        return $this;
+    }
+
+    /**
+     * @inheritdoc
+     */
+    public function getAttributes(): array
+    {
+        $attributes = $this->getProperty()->getAttributes();
+
+        foreach ($attributes as $key => $attribute) {
+            if ($attribute->getFqcn() === SchemaName::class) {
+                $attributes[$key] = new PhpAttribute(SchemaName::class, [$this->name]);
+            }
+        }
+
+        return $attributes;
     }
 }

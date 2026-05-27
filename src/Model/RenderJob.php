@@ -1,14 +1,16 @@
 <?php
 
-declare(strict_types = 1);
+declare(strict_types=1);
 
 namespace PHPModelGenerator\Model;
 
 use PHPMicroTemplate\Exception\PHPMicroTemplateException;
 use PHPMicroTemplate\Render;
+use PHPModelGenerator\Attributes\Internal;
 use PHPModelGenerator\Exception\FileSystemException;
 use PHPModelGenerator\Exception\RenderException;
 use PHPModelGenerator\Exception\ValidationException;
+use PHPModelGenerator\Model\Attributes\PhpAttribute;
 use PHPModelGenerator\Model\Validator\AbstractComposedPropertyValidator;
 use PHPModelGenerator\SchemaProcessor\Hook\SchemaHookResolver;
 use PHPModelGenerator\SchemaProcessor\PostProcessor\PostProcessor;
@@ -29,6 +31,11 @@ class RenderJob
     public function __construct(
         protected Schema $schema,
     ) {}
+
+    public function getSchema(): Schema
+    {
+        return $this->schema;
+    }
 
     /**
      * @param PostProcessor[] $postProcessors
@@ -111,9 +118,11 @@ class RenderJob
         );
 
         try {
-            $class = (new Render(__DIR__ . '/../Templates/'))->renderTemplate(
-                'Model.phptpl',
-                [
+            $class = (new Render(__DIR__ . '/../Templates/'))
+                ->onResolveError(fn(string $expression): string => '{{' . $expression . '}}')
+                ->renderTemplate(
+                    'Model.phptpl',
+                    [
                     'namespace'                         => $namespace,
                     'use'                               => $this->getUseForSchema($generatorConfiguration, $namespace),
                     'schema'                            => $this->schema,
@@ -126,8 +135,8 @@ class RenderJob
                         $this->schema->getBaseValidators(),
                         static fn($validator): bool => !is_a($validator, AbstractComposedPropertyValidator::class),
                     ),
-                ],
-            );
+                    ],
+                );
         } catch (PHPMicroTemplateException $exception) {
             // @codeCoverageIgnoreStart
             throw new RenderException(
@@ -146,10 +155,24 @@ class RenderJob
      */
     protected function getUseForSchema(GeneratorConfiguration $generatorConfiguration, string $namespace): array
     {
+        $attributeFqcns = array_map(
+            static fn(PhpAttribute $attr): string => $attr->getFqcn(),
+            $this->schema->getAttributes(),
+        );
+
+        foreach ($this->schema->getProperties() as $property) {
+            foreach ($property->getAttributes() as $attr) {
+                $attributeFqcns[] = $attr->getFqcn();
+            }
+        }
+
+        $attributeFqcns[] = Internal::class;
+
         return RenderHelper::filterClassImports(
             array_unique(
                 array_merge(
                     $this->schema->getUsedClasses(),
+                    $attributeFqcns,
                     $generatorConfiguration->collectErrors()
                         ? [$generatorConfiguration->getErrorRegistryClass()]
                         : [ValidationException::class],
