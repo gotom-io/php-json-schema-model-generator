@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace PHPModelGenerator\Model\Property;
 
+use PHPModelGenerator\Attributes\SchemaName;
 use PHPModelGenerator\Exception\SchemaException;
 use PHPModelGenerator\Model\Attributes\PhpAttribute;
 use PHPModelGenerator\Model\GeneratorConfiguration;
@@ -63,7 +64,9 @@ class PropertyProxy extends AbstractProperty
         ?PropertyType $outputType = null,
         bool $reset = false,
     ): PropertyInterface {
-        return $this->getProperty()->setType($type, $outputType, $reset);
+        $this->getProperty()->setType($type, $outputType, $reset);
+
+        return $this;
     }
 
     /**
@@ -79,7 +82,9 @@ class PropertyProxy extends AbstractProperty
      */
     public function addTypeHintDecorator(TypeHintDecoratorInterface $typeHintDecorator): PropertyInterface
     {
-        return $this->getProperty()->addTypeHintDecorator($typeHintDecorator);
+        $this->getProperty()->addTypeHintDecorator($typeHintDecorator);
+
+        return $this;
     }
 
     /**
@@ -119,7 +124,9 @@ class PropertyProxy extends AbstractProperty
      */
     public function addValidator(PropertyValidatorInterface $validator, int $priority = 99): PropertyInterface
     {
-        return $this->getProperty()->addValidator($validator, $priority);
+        $this->getProperty()->addValidator($validator, $priority);
+
+        return $this;
     }
 
     /**
@@ -135,7 +142,9 @@ class PropertyProxy extends AbstractProperty
      */
     public function filterValidators(callable $filter): PropertyInterface
     {
-        return $this->getProperty()->filterValidators($filter);
+        $this->getProperty()->filterValidators($filter);
+
+        return $this;
     }
 
     /**
@@ -155,7 +164,9 @@ class PropertyProxy extends AbstractProperty
      */
     public function addDecorator(PropertyDecoratorInterface $decorator): PropertyInterface
     {
-        return $this->getProperty()->addDecorator($decorator);
+        $this->getProperty()->addDecorator($decorator);
+
+        return $this;
     }
 
     /**
@@ -163,7 +174,9 @@ class PropertyProxy extends AbstractProperty
      */
     public function filterDecorators(callable $filter): PropertyInterface
     {
-        return $this->getProperty()->filterDecorators($filter);
+        $this->getProperty()->filterDecorators($filter);
+
+        return $this;
     }
 
     /**
@@ -191,7 +204,9 @@ class PropertyProxy extends AbstractProperty
      */
     public function setRequired(bool $isPropertyRequired): PropertyInterface
     {
-        return $this->getProperty()->setRequired($isPropertyRequired);
+        $this->getProperty()->setRequired($isPropertyRequired);
+
+        return $this;
     }
 
     /**
@@ -207,7 +222,9 @@ class PropertyProxy extends AbstractProperty
      */
     public function setReadOnly(bool $isPropertyReadOnly): PropertyInterface
     {
-        return $this->getProperty()->setReadOnly($isPropertyReadOnly);
+        $this->getProperty()->setReadOnly($isPropertyReadOnly);
+
+        return $this;
     }
 
     /**
@@ -223,7 +240,9 @@ class PropertyProxy extends AbstractProperty
      */
     public function setWriteOnly(bool $isPropertyWriteOnly): PropertyInterface
     {
-        return $this->getProperty()->setWriteOnly($isPropertyWriteOnly);
+        $this->getProperty()->setWriteOnly($isPropertyWriteOnly);
+
+        return $this;
     }
 
     /**
@@ -239,7 +258,9 @@ class PropertyProxy extends AbstractProperty
      */
     public function setDefaultValue($defaultValue, bool $raw = false): PropertyInterface
     {
-        return $this->getProperty()->setDefaultValue($defaultValue, $raw);
+        $this->getProperty()->setDefaultValue($defaultValue, $raw);
+
+        return $this;
     }
 
     /**
@@ -255,7 +276,9 @@ class PropertyProxy extends AbstractProperty
      */
     public function setNestedSchema(Schema $schema): PropertyInterface
     {
-        return $this->getProperty()->setNestedSchema($schema);
+        $this->getProperty()->setNestedSchema($schema);
+
+        return $this;
     }
 
     /**
@@ -279,7 +302,9 @@ class PropertyProxy extends AbstractProperty
      */
     public function setInternal(bool $isPropertyInternal): PropertyInterface
     {
-        return $this->getProperty()->setInternal($isPropertyInternal);
+        $this->getProperty()->setInternal($isPropertyInternal);
+
+        return $this;
     }
 
     /**
@@ -308,6 +333,14 @@ class PropertyProxy extends AbstractProperty
      */
     public function getAttributes(): array
     {
-        return $this->getProperty()->getAttributes();
+        $attributes = $this->getProperty()->getAttributes();
+
+        foreach ($attributes as $key => $attribute) {
+            if ($attribute->getFqcn() === SchemaName::class) {
+                $attributes[$key] = new PhpAttribute(SchemaName::class, [$this->name]);
+            }
+        }
+
+        return $attributes;
     }
 }
