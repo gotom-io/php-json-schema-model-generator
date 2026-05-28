@@ -64,7 +64,9 @@ class PropertyProxy extends AbstractProperty
         ?PropertyType $outputType = null,
         bool $reset = false,
     ): PropertyInterface {
-        return $this->getProperty()->setType($type, $outputType, $reset);
+        $this->getProperty()->setType($type, $outputType, $reset);
+
+        return $this;
     }
 
     /**
@@ -172,7 +174,9 @@ class PropertyProxy extends AbstractProperty
      */
     public function filterDecorators(callable $filter): PropertyInterface
     {
-        return $this->getProperty()->filterDecorators($filter);
+        $this->getProperty()->filterDecorators($filter);
+
+        return $this;
     }
 
     /**
@@ -236,7 +240,9 @@ class PropertyProxy extends AbstractProperty
      */
     public function setWriteOnly(bool $isPropertyWriteOnly): PropertyInterface
     {
-        return $this->getProperty()->setWriteOnly($isPropertyWriteOnly);
+        $this->getProperty()->setWriteOnly($isPropertyWriteOnly);
+
+        return $this;
     }
 
     /**
@@ -327,6 +333,14 @@ class PropertyProxy extends AbstractProperty
      */
     public function getAttributes(): array
     {
-        return $this->getProperty()->getAttributes();
+        $attributes = $this->getProperty()->getAttributes();
+
+        foreach ($attributes as $key => $attribute) {
+            if ($attribute->getFqcn() === SchemaName::class) {
+                $attributes[$key] = new PhpAttribute(SchemaName::class, [$this->name]);
+            }
+        }
+
+        return $attributes;
     }
 }
