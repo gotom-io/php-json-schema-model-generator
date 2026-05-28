@@ -1,6 +1,6 @@
 <?php
 
-declare(strict_types = 1);
+declare(strict_types=1);
 
 namespace PHPModelGenerator\PropertyProcessor\Filter;
 
@@ -16,14 +16,6 @@ use PHPModelGenerator\Filter\Trim;
  */
 class TrimFilter implements FilterInterface
 {
-    /**
-     * @inheritDoc
-     */
-    public function getAcceptedTypes(): array
-    {
-        return ['string', 'null'];
-    }
-
     /**
      * @inheritDoc
      */

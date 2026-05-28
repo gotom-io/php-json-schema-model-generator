@@ -1,10 +1,9 @@
 <?php
 
-declare(strict_types = 1);
+declare(strict_types=1);
 
 namespace PHPModelGenerator\Model\Validator;
 
-use PHPModelGenerator\Exception\ComposedValue\InvalidComposedValueException;
 use PHPModelGenerator\Model\GeneratorConfiguration;
 use PHPModelGenerator\Model\MethodInterface;
 use PHPModelGenerator\Model\Property\CompositionPropertyDecorator;
@@ -25,6 +24,7 @@ class ComposedPropertyValidator extends AbstractComposedPropertyValidator
         PropertyInterface $property,
         array $composedProperties,
         string $compositionProcessor,
+        string $exceptionClass,
         array $validatorVariables,
     ) {
         $this->modifiedValuesMethod = '_getModifiedValues_' . substr(md5(spl_object_hash($this)), 0, 5);
@@ -35,7 +35,7 @@ class ComposedPropertyValidator extends AbstractComposedPropertyValidator
             $property,
             DIRECTORY_SEPARATOR . 'Validator' . DIRECTORY_SEPARATOR . 'ComposedItem.phptpl',
             array_merge($validatorVariables, ['modifiedValuesMethod' => $this->modifiedValuesMethod]),
-            $this->getExceptionByProcessor($compositionProcessor),
+            $exceptionClass,
             ['&$succeededCompositionElements', '&$compositionErrorCollection'],
         );
 
@@ -57,8 +57,8 @@ class ComposedPropertyValidator extends AbstractComposedPropertyValidator
             new class ($this->composedProperties, $this->modifiedValuesMethod) implements MethodInterface {
                 public function __construct(
                     /** @var CompositionPropertyDecorator[] $compositionProperties */
-                    private array $compositionProperties,
-                    private string $modifiedValuesMethod
+                    private readonly array $compositionProperties,
+                    private readonly string $modifiedValuesMethod
                 ) {}
 
                 public function getCode(): string
@@ -79,7 +79,8 @@ class ComposedPropertyValidator extends AbstractComposedPropertyValidator
                         }
                     }
 
-                    return sprintf('
+                    return sprintf(
+                        '
                         private function %s(array $originalModelData, object $nestedCompositionObject): array {
                             $modifiedValues = [];
                             $defaultValueMap = %s;
@@ -87,7 +88,8 @@ class ComposedPropertyValidator extends AbstractComposedPropertyValidator
                             foreach (%s as $key => $accessor) {
                                 if ((isset($originalModelData[$key]) || in_array($key, $defaultValueMap))
                                     && method_exists($nestedCompositionObject, $accessor)
-                                    && ($modifiedValue = $nestedCompositionObject->$accessor()) !== ($originalModelData[$key] ?? !$modifiedValue)
+                                    && ($modifiedValue = $nestedCompositionObject->$accessor())
+                                        !== ($originalModelData[$key] ?? !$modifiedValue)
                                 ) {
                                     $modifiedValues[$key] = $modifiedValue;
                                 }
@@ -130,26 +132,13 @@ class ComposedPropertyValidator extends AbstractComposedPropertyValidator
         /** @var CompositionPropertyDecorator $composedProperty */
         foreach ($validator->composedProperties as $composedProperty) {
             $composedProperty->onResolve(static function () use ($composedProperty): void {
-                $composedProperty->filterValidators(static fn(Validator $validator): bool => !is_a($validator->getValidator(), AbstractComposedPropertyValidator::class));
+                $composedProperty->filterValidators(
+                    static fn(Validator $validator): bool =>
+                        !is_a($validator->getValidator(), AbstractComposedPropertyValidator::class)
+                );
             });
         }
 
         return $validator;
-    }
-
-    /**
-     * Parse the composition type (allOf, anyOf, ...) from the given processor and get the corresponding exception class
-     */
-    private function getExceptionByProcessor(string $compositionProcessor): string
-    {
-        return str_replace(
-                DIRECTORY_SEPARATOR,
-                '\\',
-                dirname(str_replace('\\', DIRECTORY_SEPARATOR, InvalidComposedValueException::class)),
-            ) . '\\' . str_replace(
-                'Processor',
-                '',
-                substr($compositionProcessor, strrpos($compositionProcessor, '\\') + 1),
-            ) . 'Exception';
     }
 }

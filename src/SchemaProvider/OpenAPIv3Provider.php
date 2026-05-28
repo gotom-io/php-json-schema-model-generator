@@ -26,13 +26,15 @@ class OpenAPIv3Provider implements SchemaProviderInterface
      */
     public function __construct(private string $sourceFile)
     {
+        $this->sourceFile = realpath($this->sourceFile) ?: $this->sourceFile;
         $jsonSchema = file_get_contents($this->sourceFile);
 
         if (!$jsonSchema || !($this->openAPIv3Spec = json_decode($jsonSchema, true))) {
             throw new SchemaException("Invalid JSON-Schema file {$this->sourceFile}");
         }
 
-        if (!isset($this->openAPIv3Spec['components']['schemas']) ||
+        if (
+            !isset($this->openAPIv3Spec['components']['schemas']) ||
             empty($this->openAPIv3Spec['components']['schemas'])
         ) {
             throw new SchemaException(
@@ -52,7 +54,11 @@ class OpenAPIv3Provider implements SchemaProviderInterface
                 $schema['$id'] = $schemaKey;
             }
 
-            yield new JsonSchema($this->sourceFile, array_merge($this->openAPIv3Spec, $schema));
+            yield new JsonSchema(
+                $this->sourceFile,
+                array_merge($this->openAPIv3Spec, $schema),
+                "/components/schemas/$schemaKey"
+            );
         }
     }
 

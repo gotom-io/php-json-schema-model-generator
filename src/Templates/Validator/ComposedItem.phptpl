@@ -91,7 +91,7 @@
                     $proposedValue = $proposedValue ?? $value;
                 {% endif %}
 
-                if (is_object($value)) {
+                if (is_object($value) && is_array($originalModelData)) {
                     $modifiedValues = array_merge($modifiedValues, $this->{{ modifiedValuesMethod }}($originalModelData, $value));
                 }
             {% if viewHelper.isMutableBaseValidator(generatorConfiguration, isBaseValidator) %}
@@ -111,10 +111,6 @@
                 }
             {% endif %}
 
-            /** @see https://github.com/wol-soft/php-json-schema-model-generator/issues/110 */
-            // {% foreach compositionProperty.getAffectedObjectProperties() as affectedObjectProperty %}
-            //     $modelData['{{ affectedObjectProperty.getName() }}'] = null;
-            // {% endforeach %}
 
             $succeededCompositionElements--;
         }

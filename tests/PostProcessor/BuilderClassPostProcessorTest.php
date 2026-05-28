@@ -11,7 +11,9 @@ use PHPModelGenerator\SchemaProcessor\PostProcessor\BuilderClassPostProcessor;
 use PHPModelGenerator\Tests\AbstractPHPModelGeneratorTestCase;
 use RecursiveDirectoryIterator;
 use RecursiveIteratorIterator;
+use ReflectionUnionType;
 use SplFileInfo;
+use PHPUnit\Framework\Attributes\DataProvider;
 
 class BuilderClassPostProcessorTest extends AbstractPHPModelGeneratorTestCase
 {
@@ -84,9 +86,7 @@ class BuilderClassPostProcessorTest extends AbstractPHPModelGeneratorTestCase
         $this->assertSame('Albert', $object->getName());
         $this->assertNull($object->getAge());
     }
-    /**
-     * @dataProvider validationMethodDataProvider
-     */
+    #[DataProvider('validationMethodDataProvider')]
     public function testInvalidBuilderDataThrowsAnExceptionOnValidate(GeneratorConfiguration $configuration): void
     {
         $className = $this->generateClassFromFile('BasicSchema.json', $configuration);
@@ -118,6 +118,48 @@ class BuilderClassPostProcessorTest extends AbstractPHPModelGeneratorTestCase
         $this->assertSame('int|null', $this->getParameterTypeAnnotation($builderObject, 'setAge'));
         $this->assertSame('string|null', $this->getReturnTypeAnnotation($builderObject, 'getName'));
         $this->assertSame('int|null', $this->getReturnTypeAnnotation($builderObject, 'getAge'));
+    }
+
+    public function testBuilderWithMultiTypeProperty(): void
+    {
+        $className = $this->generateClassFromFile(
+            'MultiTypeProperty.json',
+            (new GeneratorConfiguration())->setImmutable(false),
+        );
+
+        $this->assertGeneratedBuilders(1);
+
+        $builderClassName = $className . 'Builder';
+        $builderObject = new $builderClassName();
+
+        // Setter must accept int | string | null (union, not ?int|string which is a PHP syntax error)
+        $this->assertSame('int|string|null', $this->getParameterTypeAnnotation($builderObject, 'setAge'));
+        $setterType = $this->getParameterType($builderObject, 'setAge');
+        $this->assertInstanceOf(ReflectionUnionType::class, $setterType);
+        $this->assertEqualsCanonicalizing(
+            ['int', 'string', 'null'],
+            $this->getParameterTypeNames($builderObject, 'setAge'),
+        );
+
+        // Getter must return int | string | null (forceNullable=true appends null to the union)
+        $this->assertSame('int|string|null', $this->getReturnTypeAnnotation($builderObject, 'getAge'));
+        $returnType = $this->getReturnType($builderObject, 'getAge');
+        $this->assertInstanceOf(ReflectionUnionType::class, $returnType);
+        $this->assertEqualsCanonicalizing(
+            ['int', 'string', 'null'],
+            $this->getReturnTypeNames($builderObject, 'getAge'),
+        );
+
+        // Functional round-trip
+        $builderObject->setAge(42);
+        $this->assertSame(42, $builderObject->getAge());
+        $validatedObject = $builderObject->validate();
+        $this->assertInstanceOf($className, $validatedObject);
+        $this->assertSame(42, $validatedObject->getAge());
+
+        $builderObject->setAge('old');
+        $validatedObject = $builderObject->validate();
+        $this->assertSame('old', $validatedObject->getAge());
     }
 
     public function testNestedObject(): void
@@ -212,8 +254,8 @@ class BuilderClassPostProcessorTest extends AbstractPHPModelGeneratorTestCase
 
         $nestedObjectClassName = null;
         foreach ($this->getGeneratedFiles() as $file) {
-            if (str_contains($file, 'ItemOfArray')) {
-                $nestedObjectClassName = str_replace('.php', '', basename($file));
+            if (str_contains((string) $file, 'ItemOfArray')) {
+                $nestedObjectClassName = str_replace('.php', '', basename((string) $file));
 
                 break;
             }

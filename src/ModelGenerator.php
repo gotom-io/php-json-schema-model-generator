@@ -1,6 +1,6 @@
 <?php
 
-declare(strict_types = 1);
+declare(strict_types=1);
 
 namespace PHPModelGenerator;
 
@@ -11,10 +11,12 @@ use PHPModelGenerator\Exception\SchemaException;
 use PHPModelGenerator\Model\GeneratorConfiguration;
 use PHPModelGenerator\SchemaProcessor\PostProcessor\Internal\ {
     AdditionalPropertiesPostProcessor,
+    CompositionRequiredPromotionPostProcessor,
     CompositionValidationPostProcessor,
     ExtendObjectPropertiesMatchingPatternPropertiesPostProcessor,
     PatternPropertiesPostProcessor,
-    SerializationPostProcessor
+    SerializationPostProcessor,
+    TransformingFilterOutputTypePostProcessor
 };
 use PHPModelGenerator\SchemaProcessor\PostProcessor\PostProcessor;
 use PHPModelGenerator\SchemaProcessor\RenderQueue;
@@ -30,7 +32,6 @@ use RecursiveIteratorIterator;
  */
 class ModelGenerator
 {
-    protected GeneratorConfiguration $generatorConfiguration;
     /** @var PostProcessor[] */
     protected $postProcessors = [];
 
@@ -39,16 +40,16 @@ class ModelGenerator
      *
      * @param GeneratorConfiguration|null $generatorConfiguration The configuration to apply to the generator
      */
-    public function __construct(?GeneratorConfiguration $generatorConfiguration = null)
+    public function __construct(protected GeneratorConfiguration $generatorConfiguration = new GeneratorConfiguration())
     {
-        $this->generatorConfiguration = $generatorConfiguration ?? new GeneratorConfiguration();
-
         // add internal post processors which must always be executed
         $this
             ->addPostProcessor(new CompositionValidationPostProcessor())
             ->addPostProcessor(new AdditionalPropertiesPostProcessor())
             ->addPostProcessor(new PatternPropertiesPostProcessor())
-            ->addPostProcessor(new ExtendObjectPropertiesMatchingPatternPropertiesPostProcessor());
+            ->addPostProcessor(new ExtendObjectPropertiesMatchingPatternPropertiesPostProcessor())
+            ->addPostProcessor(new CompositionRequiredPromotionPostProcessor())
+            ->addPostProcessor(new TransformingFilterOutputTypePostProcessor());
     }
 
     public function addPostProcessor(PostProcessor $postProcessor): self

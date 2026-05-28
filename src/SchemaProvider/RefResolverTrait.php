@@ -18,8 +18,14 @@ trait RefResolverTrait
             throw new SchemaException("Reference to non existing JSON-Schema file $ref");
         }
 
-        if (!($decodedJsonSchema = json_decode($jsonSchema, true))) {
+        $decodedJsonSchema = json_decode($jsonSchema, true);
+
+        if (json_last_error() !== JSON_ERROR_NONE) {
             throw new SchemaException("Invalid JSON-Schema file $jsonSchemaFilePath");
+        }
+
+        if (!is_array($decodedJsonSchema)) {
+            throw new SchemaException("Referenced JSON-Schema file $jsonSchemaFilePath must contain a JSON object");
         }
 
         return new JsonSchema($jsonSchemaFilePath, $decodedJsonSchema);
@@ -73,7 +79,7 @@ trait RefResolverTrait
         if (!str_starts_with($jsonSchemaFile, '/')) {
             $candidate = $currentDir . '/' . $jsonSchemaFile;
 
-            return file_exists($candidate) ? $candidate : null;
+            return file_exists($candidate) ? realpath($candidate) : null;
         }
 
         // absolute paths: traverse up to find the context root directory
@@ -83,7 +89,7 @@ trait RefResolverTrait
         while (true) {
             $candidate = $dir . '/' . $relative;
             if (file_exists($candidate)) {
-                return $candidate;
+                return realpath($candidate);
             }
 
             $parent = dirname($dir);

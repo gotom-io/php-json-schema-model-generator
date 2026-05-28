@@ -1,13 +1,14 @@
 <?php
 
-declare(strict_types = 1);
+declare(strict_types=1);
 
 namespace PHPModelGenerator\Model\Validator;
 
 use PHPModelGenerator\Exception\ComposedValue\ConditionalException;
 use PHPModelGenerator\Model\GeneratorConfiguration;
+use PHPModelGenerator\Model\Property\CompositionPropertyDecorator;
 use PHPModelGenerator\Model\Property\PropertyInterface;
-use PHPModelGenerator\PropertyProcessor\ComposedValue\IfProcessor;
+use PHPModelGenerator\Model\Validator\Factory\Composition\IfValidatorFactory;
 
 /**
  * Class ConditionalPropertyValidator
@@ -16,10 +17,14 @@ use PHPModelGenerator\PropertyProcessor\ComposedValue\IfProcessor;
  */
 class ConditionalPropertyValidator extends AbstractComposedPropertyValidator
 {
+    /** @var CompositionPropertyDecorator[] */
+    private array $conditionBranches;
+
     public function __construct(
         GeneratorConfiguration $generatorConfiguration,
         PropertyInterface $property,
         array $composedProperties,
+        array $conditionBranches,
         array $validatorVariables,
     ) {
         $this->isResolved = true;
@@ -33,8 +38,19 @@ class ConditionalPropertyValidator extends AbstractComposedPropertyValidator
             ['&$ifException', '&$thenException', '&$elseException'],
         );
 
-        $this->compositionProcessor = IfProcessor::class;
+        $this->compositionProcessor = IfValidatorFactory::class;
         $this->composedProperties = $composedProperties;
+        $this->conditionBranches = $conditionBranches;
+    }
+
+    /**
+     * Returns the then/else branches, excluding the if condition branch.
+     *
+     * @return CompositionPropertyDecorator[]
+     */
+    public function getConditionBranches(): array
+    {
+        return $this->conditionBranches;
     }
 
     public function getValidatorSetUp(): string

@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace PHPModelGenerator\Model\Property;
 
+use PHPModelGenerator\Model\Attributes\PhpAttribute;
+use PHPModelGenerator\Model\GeneratorConfiguration;
 use PHPModelGenerator\Model\Schema;
 use PHPModelGenerator\Model\SchemaDefinition\JsonSchema;
 use PHPModelGenerator\Model\Validator;
@@ -57,6 +59,14 @@ interface PropertyInterface extends ResolvableInterface
      */
     public function getDescription(): string;
 
+    public function getComment(): ?string;
+
+    public function setComment(string $comment): PropertyInterface;
+
+    public function getExamples(): array;
+
+    public function setExamples(array $examples): PropertyInterface;
+
     /**
      * Add a validator for the property
      *
@@ -100,6 +110,11 @@ interface PropertyInterface extends ResolvableInterface
     public function resolveDecorator(string $input, bool $nestedProperty): string;
 
     /**
+     * Filter the assigned decorators
+     */
+    public function filterDecorators(callable $filter): PropertyInterface;
+
+    /**
      * @return PropertyDecoratorInterface[]
      */
     public function getDecorators(): array;
@@ -122,6 +137,10 @@ interface PropertyInterface extends ResolvableInterface
 
     public function isReadOnly(): bool;
 
+    public function isWriteOnly(): bool;
+
+    public function setWriteOnly(bool $isPropertyWriteOnly): PropertyInterface;
+
     public function isInternal(): bool;
 
     /**
@@ -140,4 +159,15 @@ interface PropertyInterface extends ResolvableInterface
      * Get the JSON schema used to set up the property
      */
     public function getJsonSchema(): JsonSchema;
+
+    public function addAttribute(
+        PhpAttribute $attribute,
+        ?GeneratorConfiguration $generatorConfiguration = null,
+        ?int $enablementFlag = null,
+    ): static;
+
+    /**
+     * @return PhpAttribute[]
+     */
+    public function getAttributes(): array;
 }

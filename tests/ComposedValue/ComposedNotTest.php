@@ -13,6 +13,7 @@ use PHPModelGenerator\Model\GeneratorConfiguration;
 use PHPModelGenerator\Tests\AbstractPHPModelGeneratorTestCase;
 use PHPModelGenerator\Exception\ValidationException;
 use stdClass;
+use PHPUnit\Framework\Attributes\DataProvider;
 
 /**
  * TODO: test object level not
@@ -23,9 +24,7 @@ use stdClass;
  */
 class ComposedNotTest extends AbstractPHPModelGeneratorTestCase
 {
-    /**
-     * @dataProvider emptyNotDataProvider
-     */
+    #[DataProvider('emptyNotDataProvider')]
     public function testEmptyNotIsInvalid(mixed $propertyValue): void
     {
         $this->expectException(ValidationException::class);
@@ -40,7 +39,7 @@ ERROR,
         new $className(['property' => $propertyValue]);
     }
 
-    public function emptyNotDataProvider(): array
+    public static function emptyNotDataProvider(): array
     {
         return [
             'null' => [null],
@@ -60,14 +59,13 @@ ERROR,
     }
 
     /**
-     * @dataProvider validPropertyTypeDataProvider
-     *
      * @param $propertyValue
      *
      * @throws FileSystemException
      * @throws RenderException
      * @throws SchemaException
      */
+    #[DataProvider('validPropertyTypeDataProvider')]
     public function testValidProvidedOptionalNotOfTypeStringPropertyIsValid(
         GeneratorConfiguration $configuration,
         $propertyValue,
@@ -78,10 +76,10 @@ ERROR,
         $this->assertSame($propertyValue, $object->getProperty());
     }
 
-    public function validPropertyTypeDataProvider(): array
+    public static function validPropertyTypeDataProvider(): array
     {
-        return $this->combineDataProvider(
-            $this->validationMethodDataProvider(),
+        return self::combineDataProvider(
+            self::validationMethodDataProvider(),
             [
                 'int' => [0],
                 'float' => [0.92],
@@ -94,12 +92,11 @@ ERROR,
     }
 
     /**
-     * @dataProvider invalidPropertyTypeDataProvider
-     *
      * @throws FileSystemException
      * @throws RenderException
      * @throws SchemaException
      */
+    #[DataProvider('invalidPropertyTypeDataProvider')]
     public function testInvalidProvidedOptionalNotOfTypeStringPropertyThrowsAnException(
         GeneratorConfiguration $configuration,
         string $propertyValue,
@@ -111,10 +108,10 @@ ERROR,
         new $className(['property' => $propertyValue]);
     }
 
-    public function invalidPropertyTypeDataProvider(): array
+    public static function invalidPropertyTypeDataProvider(): array
     {
-        return $this->combineDataProvider(
-            $this->validationMethodDataProvider(),
+        return self::combineDataProvider(
+            self::validationMethodDataProvider(),
             [
                 'empty string' => [''],
                 'numeric string' => ['100'],
@@ -124,12 +121,11 @@ ERROR,
     }
 
     /**
-     * @dataProvider validationMethodDataProvider
-     *
      * @throws FileSystemException
      * @throws RenderException
      * @throws SchemaException
      */
+    #[DataProvider('validationMethodDataProvider')]
     public function testNotProvidedOptionalNotNullPropertyThrowsAnException(GeneratorConfiguration $configuration): void
     {
         $this->expectValidationError($configuration, 'Invalid value for property declined by composition constraint');
@@ -140,12 +136,11 @@ ERROR,
     }
 
     /**
-     * @dataProvider validationMethodDataProvider
-     *
      * @throws FileSystemException
      * @throws RenderException
      * @throws SchemaException
      */
+    #[DataProvider('validationMethodDataProvider')]
     public function testInvalidProvidedOptionalNotNullPropertyThrowsAnException(
         GeneratorConfiguration $configuration,
     ): void {
@@ -157,12 +152,11 @@ ERROR,
     }
 
     /**
-     * @dataProvider validNotNullPropertyDataProvider
-     *
      * @throws FileSystemException
      * @throws RenderException
      * @throws SchemaException
      */
+    #[DataProvider('validNotNullPropertyDataProvider')]
     public function testValidProvidedOptionalNotNullPropertyIsValid(
         GeneratorConfiguration $configuration,
         mixed $propertyValue,
@@ -173,10 +167,10 @@ ERROR,
         $this->assertSame($propertyValue, $object->getProperty());
     }
 
-    public function validNotNullPropertyDataProvider(): array
+    public static function validNotNullPropertyDataProvider(): array
     {
-        return $this->combineDataProvider(
-            $this->validationMethodDataProvider(),
+        return self::combineDataProvider(
+            self::validationMethodDataProvider(),
             [
                 'int' => [0],
                 'float' => [0.92],
@@ -189,12 +183,25 @@ ERROR,
     }
 
     /**
-     * @dataProvider validExtendedPropertyDataProvider
-     *
      * @throws FileSystemException
      * @throws RenderException
      * @throws SchemaException
      */
+    #[DataProvider('validationMethodDataProvider')]
+    public function testObjectLevelNot(GeneratorConfiguration $configuration): void
+    {
+        $className = $this->generateClassFromFile('ObjectLevelNot.json', $configuration);
+
+        // An empty object does not satisfy the `not` branch (required 'name' is absent), so it is valid.
+        $object = new $className([]);
+        $this->assertSame([], $object->getRawModelDataInput());
+
+        // Providing the required 'name' property satisfies the `not` branch → validation fails.
+        $this->expectValidationError($configuration, 'declined by composition constraint');
+        new $className(['name' => 'Alice']);
+    }
+
+    #[DataProvider('validExtendedPropertyDataProvider')]
     public function testExtendedPropertyDefinitionWithValidValues(
         GeneratorConfiguration $configuration,
         float $propertyValue,
@@ -205,10 +212,10 @@ ERROR,
         $this->assertSame($propertyValue, $object->getProperty());
     }
 
-    public function validExtendedPropertyDataProvider(): array
+    public static function validExtendedPropertyDataProvider(): array
     {
-        return $this->combineDataProvider(
-            $this->validationMethodDataProvider(),
+        return self::combineDataProvider(
+            self::validationMethodDataProvider(),
             [
                 '11.' => [11.],
                 '13.' => [13.],
@@ -218,12 +225,11 @@ ERROR,
     }
 
     /**
-     * @dataProvider invalidExtendedPropertyDataProvider
-     *
      * @throws FileSystemException
      * @throws RenderException
      * @throws SchemaException
      */
+    #[DataProvider('invalidExtendedPropertyDataProvider')]
     public function testExtendedPropertyDefinitionWithInvalidValuesThrowsAnException(
         GeneratorConfiguration $configuration,
         mixed $propertyValue,
@@ -236,10 +242,10 @@ ERROR,
         new $className(['property' => $propertyValue]);
     }
 
-    public function invalidExtendedPropertyDataProvider(): array
+    public static function invalidExtendedPropertyDataProvider(): array
     {
-        return $this->combineDataProvider(
-            $this->validationMethodDataProvider(),
+        return self::combineDataProvider(
+            self::validationMethodDataProvider(),
             [
                 '10.' => [10., 'Invalid value for property declined by composition constraint'],
                 '12.' => [12., 'Invalid value for property declined by composition constraint'],
@@ -255,12 +261,11 @@ ERROR,
     }
 
     /**
-     * @dataProvider validationMethodDataProvider
-     *
      * @throws FileSystemException
      * @throws RenderException
      * @throws SchemaException
      */
+    #[DataProvider('validationMethodDataProvider')]
     public function testNotProvidedObjectPropertyWithReferencedSchemaIsValid(
         GeneratorConfiguration $configuration,
     ): void {
@@ -271,12 +276,11 @@ ERROR,
     }
 
     /**
-     * @dataProvider objectPropertyWithReferencedSchemaDataProvider
-     *
      * @throws FileSystemException
      * @throws RenderException
      * @throws SchemaException
      */
+    #[DataProvider('objectPropertyWithReferencedSchemaDataProvider')]
     public function testNotMatchingObjectPropertyWithReferencedSchemaIsValid(
         GeneratorConfiguration $configuration,
         mixed $propertyValue,
@@ -287,10 +291,10 @@ ERROR,
         $this->assertSame($propertyValue, $object->getPerson());
     }
 
-    public function objectPropertyWithReferencedSchemaDataProvider(): array
+    public static function objectPropertyWithReferencedSchemaDataProvider(): array
     {
-        return $this->combineDataProvider(
-            $this->validationMethodDataProvider(),
+        return self::combineDataProvider(
+            self::validationMethodDataProvider(),
             [
                 'null' => [null],
                 'int' => [0],
@@ -308,12 +312,11 @@ ERROR,
     }
 
     /**
-     * @dataProvider validationMethodDataProvider
-     *
      * @throws FileSystemException
      * @throws RenderException
      * @throws SchemaException
      */
+    #[DataProvider('validationMethodDataProvider')]
     public function testMatchingObjectPropertyWithReferencedSchemaThrowsAnException(
         GeneratorConfiguration $configuration,
     ): void {
@@ -324,9 +327,7 @@ ERROR,
         new $className(['person' => ['name' => 'Hannes', 'age' => 42]]);
     }
 
-    /**
-     * @dataProvider validationInSetterDataProvider
-     */
+    #[DataProvider('validationInSetterDataProvider')]
     public function testComposedNotValidationInSetterMethods(
         GeneratorConfiguration $generatorConfiguration,
         string $exceptionMessage,
@@ -358,7 +359,7 @@ ERROR,
         $this->assertSame(6, $object->getProperty());
     }
 
-    public function validationInSetterDataProvider(): array
+    public static function validationInSetterDataProvider(): array
     {
         return [
             'Exception Collection' => [

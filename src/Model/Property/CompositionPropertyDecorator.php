@@ -1,6 +1,6 @@
 <?php
 
-declare(strict_types = 1);
+declare(strict_types=1);
 
 namespace PHPModelGenerator\Model\Property;
 
@@ -15,7 +15,7 @@ use PHPModelGenerator\Model\SchemaDefinition\ResolvedDefinitionsCollection;
  */
 class CompositionPropertyDecorator extends PropertyProxy
 {
-    private const PROPERTY_KEY = 'composition';
+    private const string PROPERTY_KEY = 'composition';
 
     /**
      * Store all properties from nested schemas of the composed property validator. If the composition validator fails
@@ -24,6 +24,8 @@ class CompositionPropertyDecorator extends PropertyProxy
      * @var PropertyInterface[]
      */
     protected $affectedObjectProperties = [];
+
+    private bool $alwaysTrueBranch = false;
 
     /**
      * CompositionPropertyDecorator constructor.
@@ -58,5 +60,25 @@ class CompositionPropertyDecorator extends PropertyProxy
     public function getAffectedObjectProperties(): array
     {
         return $this->affectedObjectProperties;
+    }
+
+    public function markAsAlwaysTrueBranch(): void
+    {
+        $this->alwaysTrueBranch = true;
+    }
+
+    public function isAlwaysTrueBranch(): bool
+    {
+        return $this->alwaysTrueBranch;
+    }
+
+    /**
+     * Return the branch-level JSON schema (the composition element schema, which may contain
+     * additionalProperties constraints). This is distinct from getJsonSchema(), which proxies
+     * to the inner wrapped property's schema via PropertyProxy.
+     */
+    public function getBranchSchema(): JsonSchema
+    {
+        return $this->jsonSchema;
     }
 }

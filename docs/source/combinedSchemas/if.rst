@@ -117,3 +117,80 @@ Generated interface:
 
     public function setPostalCode(string $country): static;
     public function getPostalCode(): ?string;
+
+When the ``then`` and ``else`` branches define the same property with **different types**, the generator produces a union type hint — consistent with the behaviour of ``anyOf``/``oneOf``:
+
+.. code-block:: json
+
+    {
+        "$id": "example",
+        "type": "object",
+        "if": {
+            "properties": {
+                "name": {
+                    "const": "Alice"
+                }
+            }
+        },
+        "then": {
+            "properties": {
+                "age": {
+                    "type": "integer"
+                }
+            }
+        },
+        "else": {
+            "properties": {
+                "age": {
+                    "type": "string"
+                }
+            }
+        }
+    }
+
+Generated interface:
+
+.. code-block:: php
+
+    public function setAge(int | string | null $age): static;
+    public function getAge(): int | string | null;
+
+When only a ``then`` block is present (no ``else``), the branch may not apply at runtime, so the property is always nullable:
+
+.. code-block:: php
+
+    public function setAge(?int $age): static;
+    public function getAge(): ?int;
+
+.. note::
+
+    Any of the three branches (``if``, ``then``, ``else``) can be the boolean literal ``true`` or
+    ``false``. The generator resolves these statically at generation time:
+
+    - ``if: false`` — condition never matches; ``else`` (if present) is applied unconditionally,
+      ``then`` is ignored.
+    - ``if: true`` — condition always matches; ``then`` (if present) is applied unconditionally,
+      ``else`` is ignored.
+    - ``if: false, else: false`` or ``if: true, then: false`` — the composition is always
+      unsatisfiable; providing any value raises a ``ConditionalException`` at runtime. The generator
+      also emits a warning at generation time.
+    - ``then: false`` / ``else: false`` (with a real schema for ``if``) — when the relevant
+      branch is entered, the value would always be invalid; the generator throws a
+      ``SchemaException`` at generation time.
+    - ``then: true`` / ``else: true`` — when the relevant branch is entered, any value is
+      accepted; treated as absent (no additional constraint).
+
+.. hint::
+
+    The union-widening and nullability rules for ``if``/``then``/``else`` follow the same logic as
+    ``anyOf``/``oneOf``. See `Cross-typed compositions <crossTypedComposition.html>`__ for the full
+    explanation.
+
+.. note::
+
+    For object-level ``if``/``then``/``else`` compositions, when a property appears in the
+    ``required`` array of **both** ``then`` and ``else``, the generator promotes that property to
+    non-nullable. Exactly one of the two branches applies at runtime, and both guarantee the
+    property's presence. If there is no ``else`` block, the property is never promoted — the schema
+    is silent when the condition fails, so the property may be absent. See
+    `Cross-typed compositions <crossTypedComposition.html>`__ for the full promotion rules.

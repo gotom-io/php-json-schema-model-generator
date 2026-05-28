@@ -1,6 +1,6 @@
 <?php
 
-declare(strict_types = 1);
+declare(strict_types=1);
 
 namespace PHPModelGenerator\SchemaProcessor\PostProcessor;
 
@@ -22,8 +22,8 @@ class BuilderClassPostProcessor extends PostProcessor
 {
     /** @var Schema[] */
     private array $schemas = [];
-    private ?GeneratorConfiguration $generatorConfiguration;
-    private ?RenderHelper $renderHelper;
+    private ?GeneratorConfiguration $generatorConfiguration = null;
+    private ?RenderHelper $renderHelper = null;
 
     public function process(Schema $schema, GeneratorConfiguration $generatorConfiguration): void
     {
@@ -62,18 +62,24 @@ class BuilderClassPostProcessor extends PostProcessor
 
             $result = file_put_contents(
                 $filename = str_replace('.php', 'Builder.php', $schema->getTargetFileName()),
-                (new Render(__DIR__ . DIRECTORY_SEPARATOR . 'Templates' . DIRECTORY_SEPARATOR))->renderTemplate(
-                    'BuilderClass.phptpl',
-                    [
-                        'namespace'              => $namespace,
-                        'class'                  => $schema->getClassName(),
-                        'schema'                 => $schema,
-                        'properties'             => $properties,
-                        'use'                    => $this->getBuilderClassImports($properties, $schema->getUsedClasses(), $namespace),
-                        'generatorConfiguration' => $this->generatorConfiguration,
-                        'viewHelper'             => new RenderHelper($this->generatorConfiguration),
-                    ],
-                )
+                (new Render(__DIR__ . DIRECTORY_SEPARATOR . 'Templates' . DIRECTORY_SEPARATOR))
+                    ->onResolveError(fn(string $expression): string => '{{' . $expression . '}}')
+                    ->renderTemplate(
+                        'BuilderClass.phptpl',
+                        [
+                                'namespace'              => $namespace,
+                                'class'                  => $schema->getClassName(),
+                                'schema'                 => $schema,
+                                'properties'             => $properties,
+                                'use'                    => $this->getBuilderClassImports(
+                                    $properties,
+                                    $schema->getUsedClasses(),
+                                    $namespace,
+                                ),
+                                'generatorConfiguration' => $this->generatorConfiguration,
+                                'viewHelper'             => new RenderHelper($this->generatorConfiguration),
+                            ],
+                    )
             );
 
             $fqcn = "$namespace\\{$schema->getClassName()}Builder";
@@ -108,15 +114,17 @@ class BuilderClassPostProcessor extends PostProcessor
 
         foreach ($properties as $property) {
             // use typehint instead of type to cover multi-types
-            foreach (array_unique([
+            foreach (
+                array_unique([
                 ...explode('|', $this->renderHelper->getTypeHintAnnotation($property)),
                 ...explode('|', $this->renderHelper->getTypeHintAnnotation($property, true)),
-            ]) as $typeAnnotation) {
+                ]) as $typeAnnotation
+            ) {
                 $type = str_replace('[]', '', $typeAnnotation);
 
                 // as the typehint only knows the class name but not the fqcn, lookup in the original imports
                 foreach ($originalClassImports as $originalClassImport) {
-                    if (str_ends_with($originalClassImport, "\\$type")) {
+                    if (str_ends_with((string) $originalClassImport, "\\$type")) {
                         $type = $originalClassImport;
                     }
                 }

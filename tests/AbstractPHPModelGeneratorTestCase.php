@@ -6,6 +6,8 @@ namespace PHPModelGenerator\Tests;
 
 use Exception;
 use FilesystemIterator;
+use PHPModelGenerator\Attributes\JsonPointer;
+use PHPModelGenerator\Interfaces\JSONModelInterface;
 use PHPModelGenerator\Model\SchemaDefinition\JsonSchema;
 use PHPModelGenerator\SchemaProvider\OpenAPIv3Provider;
 use PHPModelGenerator\SchemaProvider\RecursiveDirectoryProvider;
@@ -22,7 +24,10 @@ use PHPUnit\Framework\TestCase;
 use RecursiveDirectoryIterator;
 use RecursiveIteratorIterator;
 use ReflectionClass;
+use ReflectionNamedType;
+use ReflectionProperty;
 use ReflectionType;
+use ReflectionUnionType;
 
 /**
  * Class AbstractPHPModelGeneratorTest
@@ -51,19 +56,6 @@ abstract class AbstractPHPModelGeneratorTestCase extends TestCase
     }
 
     /**
-     * Polyfill for assertRegEx to avoid warnings during test execution
-     *
-     * TODO: remove and switch all calls to assertMatchesRegularExpression when dropping support for PHPUnit < 9.1
-     * TODO: (dropping support for PHP < 7.4)
-     */
-    public static function assertRegExp(string $pattern, string $string, string $message = ''): void
-    {
-        is_callable([parent::class, 'assertMatchesRegularExpression'])
-            ? parent::assertMatchesRegularExpression($pattern, $string, $message)
-            : parent::assertRegExp($pattern, $string, $message);
-    }
-
-    /**
      * Check if the test has failed. In this case move all JSON files and generated classes in a directory for debugging
      *
      * Additionally clear the test folder so the next test starts in an empty environment
@@ -72,8 +64,8 @@ abstract class AbstractPHPModelGeneratorTestCase extends TestCase
     {
         parent::tearDown();
 
-        if ($this->hasFailed()) {
-            $failedResultDir = FAILED_CLASSES_PATH . preg_replace( '/[^a-z0-9]+/i', '-', $this->getName());
+        if ($this->status()->isFailure() || $this->status()->isError()) {
+            $failedResultDir = FAILED_CLASSES_PATH . preg_replace('/[^a-z0-9]+/i', '-', $this->name());
             $dir = sys_get_temp_dir() . '/PHPModelGeneratorTest';
 
             foreach (
@@ -294,7 +286,7 @@ abstract class AbstractPHPModelGeneratorTestCase extends TestCase
     /**
      * Combine two data providers
      */
-    protected function combineDataProvider(array $dataProvider1, array $dataProvider2): array
+    protected static function combineDataProvider(array $dataProvider1, array $dataProvider2): array
     {
         $result = [];
         foreach ($dataProvider1 as $dp1Key => $dp1Value) {
@@ -376,7 +368,28 @@ abstract class AbstractPHPModelGeneratorTestCase extends TestCase
         $this->fail("Error exception $expectedException not found in error registry exception");
     }
 
-    public function validationMethodDataProvider(): array
+    protected function assertClassHasJsonPointer(JSONModelInterface $object, string $expectedPointer): void
+    {
+        $this->assertJsonPointer(new ReflectionClass($object), $expectedPointer);
+    }
+
+    protected function assertPropertyHasJsonPointer(
+        JSONModelInterface $object,
+        string $property,
+        string $expectedPointer,
+    ): void {
+        $this->assertJsonPointer(new ReflectionClass($object)->getProperty($property), $expectedPointer);
+    }
+
+    private function assertJsonPointer(ReflectionClass | ReflectionProperty $target, string $expectedPointer): void
+    {
+        $attributes = $target->getAttributes(JsonPointer::class);
+        $this->assertCount(1, $attributes);
+        $this->assertCount(1, $attributes[0]->getArguments());
+        $this->assertSame($expectedPointer, $attributes[0]->getArguments()[0]);
+    }
+
+    public static function validationMethodDataProvider(): array
     {
         return [
             'Error Collection' => [new GeneratorConfiguration()],
@@ -384,7 +397,7 @@ abstract class AbstractPHPModelGeneratorTestCase extends TestCase
         ];
     }
 
-    public function implicitNullDataProvider(): array
+    public static function implicitNullDataProvider(): array
     {
         return [
             'implicit null enabled' => [true],
@@ -392,7 +405,7 @@ abstract class AbstractPHPModelGeneratorTestCase extends TestCase
         ];
     }
 
-    public function namespaceDataProvider(): array
+    public static function namespaceDataProvider(): array
     {
         return [
             'No namespace' => [''],
@@ -453,6 +466,63 @@ abstract class AbstractPHPModelGeneratorTestCase extends TestCase
     protected function getReturnType($object, string $method): ?ReflectionType
     {
         return (new ReflectionClass($object))->getMethod($method)->getReturnType();
+    }
+
+    /**
+     * Returns all type names from a native PHP return type hint.
+     * Handles both ReflectionNamedType (single type) and ReflectionUnionType (union type).
+     * Null is represented as the string 'null'. Returns [] if no type hint exists.
+     */
+    protected function getReturnTypeNames($object, string $method): array
+    {
+        return $this->reflectionTypeToNames($this->getReturnType($object, $method));
+    }
+
+    /**
+     * Returns all type names from a native PHP parameter type hint.
+     * Handles both ReflectionNamedType (single type) and ReflectionUnionType (union type).
+     * Null is represented as the string 'null'. Returns [] if no type hint exists.
+     */
+    protected function getParameterTypeNames($object, string $method, int $parameter = 0): array
+    {
+        return $this->reflectionTypeToNames($this->getParameterType($object, $method, $parameter));
+    }
+
+    /**
+     * Returns the native PHP type of a property declaration via Reflection.
+     */
+    protected function getPropertyType($object, string $property): ?ReflectionType
+    {
+        return (new ReflectionClass($object))->getProperty($property)->getType();
+    }
+
+    /**
+     * Returns all type names from a native PHP property declaration type hint.
+     * Handles both ReflectionNamedType (single type) and ReflectionUnionType (union type).
+     * Null is represented as the string 'null'. Returns [] if no type hint exists.
+     */
+    protected function getPropertyTypeNames($object, string $property): array
+    {
+        return $this->reflectionTypeToNames($this->getPropertyType($object, $property));
+    }
+
+    private function reflectionTypeToNames(?ReflectionType $type): array
+    {
+        if (!$type) {
+            return [];
+        }
+
+        if ($type instanceof ReflectionUnionType) {
+            return array_map(fn(ReflectionNamedType $t): string => $t->getName(), $type->getTypes());
+        }
+
+        /** @var ReflectionNamedType $type */
+        $names = [$type->getName()];
+        if ($type->allowsNull() && $type->getName() !== 'null') {
+            $names[] = 'null';
+        }
+
+        return $names;
     }
 
     protected function getGeneratedFiles(): array

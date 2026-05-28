@@ -10,9 +10,10 @@ use PHPModelGenerator\Exception\ValidationException;
 use PHPModelGenerator\Exception\RenderException;
 use PHPModelGenerator\Exception\SchemaException;
 use PHPModelGenerator\Model\GeneratorConfiguration;
-use PHPModelGenerator\Model\Schema;
 use PHPModelGenerator\Tests\AbstractPHPModelGeneratorTestCase;
 use stdClass;
+use PHPUnit\Framework\Attributes\DataProvider;
+use PHPUnit\Framework\Attributes\WithoutErrorHandler;
 
 /**
  * Class ReferencePropertyTest
@@ -24,12 +25,11 @@ class ReferencePropertyTest extends AbstractPHPModelGeneratorTestCase
     protected const EXTERNAL_JSON_DIRECTORIES = ['../ReferencePropertyTest_external'];
 
     /**
-     * @dataProvider internalReferenceProvider
-     *
      * @throws FileSystemException
      * @throws RenderException
      * @throws SchemaException
      */
+    #[DataProvider('internalReferenceProvider')]
     public function testNotResolvedInternalReferenceThrowsAnException(string $reference): void
     {
         $this->expectException(SchemaException::class);
@@ -40,7 +40,7 @@ class ReferencePropertyTest extends AbstractPHPModelGeneratorTestCase
         $this->generateClassFromFileTemplate('NotResolvedReference.json', [$reference]);
     }
 
-    public function internalReferenceProvider(): array
+    public static function internalReferenceProvider(): array
     {
         return [
             'Internal path reference' => ['#/definitions/person'],
@@ -48,7 +48,7 @@ class ReferencePropertyTest extends AbstractPHPModelGeneratorTestCase
         ];
     }
 
-    public function externalReferenceProvider(): array
+    public static function externalReferenceProvider(): array
     {
         return [
             'external path reference' => ['../ReferencePropertyTest_external/library.json#/definitions/person'],
@@ -58,13 +58,12 @@ class ReferencePropertyTest extends AbstractPHPModelGeneratorTestCase
     }
 
     /**
-     * @dataProvider internalReferenceProvider
-     * @dataProvider externalReferenceProvider
-     *
      * @throws FileSystemException
      * @throws RenderException
      * @throws SchemaException
      */
+    #[DataProvider('internalReferenceProvider')]
+    #[DataProvider('externalReferenceProvider')]
     public function testNotProvidedOptionalReferenceObjectPropertyIsValid(string $reference): void
     {
         $className = $this->generateClassFromFileTemplate('ObjectReference.json', [$reference]);
@@ -82,12 +81,11 @@ class ReferencePropertyTest extends AbstractPHPModelGeneratorTestCase
     }
 
     /**
-     * @dataProvider validReferenceObjectInputProvider
-     *
      * @throws FileSystemException
      * @throws RenderException
      * @throws SchemaException
      */
+    #[DataProvider('validReferenceObjectInputProvider')]
     public function testProvidedReferenceObjectPropertyIsValid(
         string $reference,
         ?array $input,
@@ -102,13 +100,24 @@ class ReferencePropertyTest extends AbstractPHPModelGeneratorTestCase
             $this->assertSame($input['name'] ?? null, ($object->getPerson()->getName()));
             $this->assertSame($input['age'] ?? null, ($object->getPerson()->getAge()));
             $this->assertSame($input, ($object->getPerson()->getRawModelDataInput()));
+
+            // External standalone file references resolve at the root of that file (pointer ''),
+            // whereas path/id references into definitions resolve at '/definitions/person'.
+            $person = $object->getPerson();
+            if (str_ends_with($reference, 'person.json')) {
+                $this->assertClassHasJsonPointer($person, '');
+                $this->assertPropertyHasJsonPointer($person, 'name', '/properties/name');
+            } else {
+                $this->assertClassHasJsonPointer($person, '/definitions/person');
+                $this->assertPropertyHasJsonPointer($person, 'name', '/definitions/person/properties/name');
+            }
         }
     }
 
-    public function validReferenceObjectInputProvider(): array
+    public static function validReferenceObjectInputProvider(): array
     {
-        return $this->combineDataProvider(
-            array_merge($this->internalReferenceProvider(), $this->externalReferenceProvider()),
+        return self::combineDataProvider(
+            array_merge(self::internalReferenceProvider(), self::externalReferenceProvider()),
             [
                 'Empty object' => [[], 'object'],
                 'Object with property' => [['name' => 'Hannes', 'age' => 42, 'stringProperty' => 'Hello'], 'object'],
@@ -118,13 +127,12 @@ class ReferencePropertyTest extends AbstractPHPModelGeneratorTestCase
     }
 
     /**
-     * @dataProvider invalidInternalReferenceObjectPropertyTypeDataProvider
-     * @dataProvider invalidExternalReferenceObjectPropertyTypeDataProvider
-     *
      * @throws FileSystemException
      * @throws RenderException
      * @throws SchemaException
      */
+    #[DataProvider('invalidInternalReferenceObjectPropertyTypeDataProvider')]
+    #[DataProvider('invalidExternalReferenceObjectPropertyTypeDataProvider')]
     public function testInvalidReferenceObjectPropertyTypeThrowsAnException(
         string $reference,
         mixed $propertyValue,
@@ -143,23 +151,23 @@ class ReferencePropertyTest extends AbstractPHPModelGeneratorTestCase
         new $className(['person' => $propertyValue]);
     }
 
-    public function invalidInternalReferenceObjectPropertyTypeDataProvider(): array
+    public static function invalidInternalReferenceObjectPropertyTypeDataProvider(): array
     {
-        return $this->combineDataProvider(
-            $this->internalReferenceProvider(),
-            $this->invalidObjectPropertyTypeDataProvider(),
+        return self::combineDataProvider(
+            self::internalReferenceProvider(),
+            static::invalidObjectPropertyTypeDataProvider(),
         );
     }
 
-    public function invalidExternalReferenceObjectPropertyTypeDataProvider(): array
+    public static function invalidExternalReferenceObjectPropertyTypeDataProvider(): array
     {
-        return $this->combineDataProvider(
-            $this->externalReferenceProvider(),
-            $this->invalidObjectPropertyTypeDataProvider(),
+        return self::combineDataProvider(
+            self::externalReferenceProvider(),
+            static::invalidObjectPropertyTypeDataProvider(),
         );
     }
 
-    public function invalidObjectPropertyTypeDataProvider(): array
+    public static function invalidObjectPropertyTypeDataProvider(): array
     {
         return [
             'bool' => [true],
@@ -171,12 +179,11 @@ class ReferencePropertyTest extends AbstractPHPModelGeneratorTestCase
     }
 
     /**
-     * @dataProvider validReferenceIntInputProvider
-     *
      * @throws FileSystemException
      * @throws RenderException
      * @throws SchemaException
      */
+    #[DataProvider('validReferenceIntInputProvider')]
     public function testProvidedReferenceIntPropertyIsValid(string $reference, ?int $input): void
     {
         $className = $this->generateClassFromFileTemplate('IntReference.json', [$reference]);
@@ -185,7 +192,7 @@ class ReferencePropertyTest extends AbstractPHPModelGeneratorTestCase
         $this->assertSame($input, $object->getYear());
     }
 
-    public function intReferenceProvider(): array
+    public static function intReferenceProvider(): array
     {
         return [
             'Internal path reference' => ['#/definitions/yearBetween1900and2000'],
@@ -195,10 +202,10 @@ class ReferencePropertyTest extends AbstractPHPModelGeneratorTestCase
         ];
     }
 
-    public function validReferenceIntInputProvider(): array
+    public static function validReferenceIntInputProvider(): array
     {
-        return $this->combineDataProvider(
-            $this->intReferenceProvider(),
+        return self::combineDataProvider(
+            static::intReferenceProvider(),
             [
                 'Null' => [null],
                 'Upper limit' => [2000],
@@ -208,12 +215,11 @@ class ReferencePropertyTest extends AbstractPHPModelGeneratorTestCase
     }
 
     /**
-     * @dataProvider invalidReferenceIntPropertyTypeDataProvider
-     *
      * @throws FileSystemException
      * @throws RenderException
      * @throws SchemaException
      */
+    #[DataProvider('invalidReferenceIntPropertyTypeDataProvider')]
     public function testInvalidReferenceIntPropertyTypeThrowsAnException(
         string $reference,
         mixed $propertyValue,
@@ -227,10 +233,10 @@ class ReferencePropertyTest extends AbstractPHPModelGeneratorTestCase
         new $className(['year' => $propertyValue]);
     }
 
-    public function invalidReferenceIntPropertyTypeDataProvider(): array
+    public static function invalidReferenceIntPropertyTypeDataProvider(): array
     {
-        return $this->combineDataProvider(
-            $this->intReferenceProvider(),
+        return self::combineDataProvider(
+            static::intReferenceProvider(),
             [
                 'bool' => [true, 'Invalid type for year'],
                 'float' => [0.92, 'Invalid type for year'],
@@ -243,7 +249,7 @@ class ReferencePropertyTest extends AbstractPHPModelGeneratorTestCase
         );
     }
 
-    public function recursiveExternalReferenceProvider(): array
+    public static function recursiveExternalReferenceProvider(): array
     {
         return [
             'external path reference to direct recursion' => ['../ReferencePropertyTest_external/recursiveLibrary.json#/definitions/personDirect'],
@@ -253,22 +259,21 @@ class ReferencePropertyTest extends AbstractPHPModelGeneratorTestCase
         ];
     }
 
-    public function combinedReferenceProvider(): array
+    public static function combinedReferenceProvider(): array
     {
         return array_merge(
-            $this->combineDataProvider($this->internalReferenceProvider(), $this->internalReferenceProvider()),
-            $this->combineDataProvider($this->recursiveExternalReferenceProvider(), $this->internalReferenceProvider()),
-            $this->combineDataProvider($this->recursiveExternalReferenceProvider(), $this->recursiveExternalReferenceProvider()),
+            self::combineDataProvider(self::internalReferenceProvider(), self::internalReferenceProvider()),
+            self::combineDataProvider(static::recursiveExternalReferenceProvider(), self::internalReferenceProvider()),
+            self::combineDataProvider(static::recursiveExternalReferenceProvider(), static::recursiveExternalReferenceProvider()),
         );
     }
 
     /**
-     * @dataProvider combinedReferenceProvider
-     *
      * @throws FileSystemException
      * @throws RenderException
      * @throws SchemaException
      */
+    #[DataProvider('combinedReferenceProvider')]
     public function testNotProvidedOptionalRecursiveReferenceObjectPropertyIsValid(
         string $reference1,
         string $reference2,
@@ -281,12 +286,11 @@ class ReferencePropertyTest extends AbstractPHPModelGeneratorTestCase
     }
 
     /**
-     * @dataProvider combinedReferenceProvider
-     *
      * @throws FileSystemException
      * @throws RenderException
      * @throws SchemaException
      */
+    #[DataProvider('combinedReferenceProvider')]
     public function testProvidedRecursiveReferenceObjectPropertyIsValid(
         string $reference1,
         string $reference2,
@@ -323,12 +327,11 @@ class ReferencePropertyTest extends AbstractPHPModelGeneratorTestCase
     }
 
     /**
-     * @dataProvider invalidCombinedReferenceObjectPropertyTypeDataProvider
-     *
      * @throws FileSystemException
      * @throws RenderException
      * @throws SchemaException
      */
+    #[DataProvider('invalidCombinedReferenceObjectPropertyTypeDataProvider')]
     public function testInvalidProvidedRecursiveReferenceObjectPropertyValueThrowsAnException(
         string $reference1,
         string $reference2,
@@ -354,37 +357,36 @@ class ReferencePropertyTest extends AbstractPHPModelGeneratorTestCase
         ]);
     }
 
-    public function invalidCombinedReferenceObjectPropertyTypeDataProvider(): array
+    public static function invalidCombinedReferenceObjectPropertyTypeDataProvider(): array
     {
         // the combination external reference - external reference must'nt be tested. If the internal person definition
         // from the RecursiveObjectReference.json maps to an external definition and the object reference maps to an
         // external definition the internal definition is never used and thus can be ignored
         return array_merge(
-            $this->combineDataProvider(
-                $this->internalReferenceProvider(),
-                $this->invalidInternalReferenceObjectPropertyTypeDataProvider(),
+            self::combineDataProvider(
+                self::internalReferenceProvider(),
+                self::invalidInternalReferenceObjectPropertyTypeDataProvider(),
             ),
-            $this->combineDataProvider(
-                $this->externalReferenceProvider(),
-                $this->invalidInternalReferenceObjectPropertyTypeDataProvider(),
+            self::combineDataProvider(
+                self::externalReferenceProvider(),
+                self::invalidInternalReferenceObjectPropertyTypeDataProvider(),
             ),
-            $this->combineDataProvider(
-                $this->internalReferenceProvider(),
-                $this->combineDataProvider(
-                    $this->recursiveExternalReferenceProvider(),
-                    $this->invalidObjectPropertyTypeDataProvider(),
+            self::combineDataProvider(
+                self::internalReferenceProvider(),
+                self::combineDataProvider(
+                    static::recursiveExternalReferenceProvider(),
+                    static::invalidObjectPropertyTypeDataProvider(),
                 )
             ),
         );
     }
 
     /**
-     * @dataProvider nestedReferenceProvider
-     *
      * @throws FileSystemException
      * @throws RenderException
      * @throws SchemaException
      */
+    #[DataProvider('nestedReferenceProvider')]
     public function testNestedExternalReference(string $id, string $reference): void
     {
         $className = $this->generateClassFromFileTemplate('NestedExternalReference.json', [$id, $reference]);
@@ -414,7 +416,7 @@ class ReferencePropertyTest extends AbstractPHPModelGeneratorTestCase
         $this->assertEmpty($object->getFamily()->getMember()[1]->getChildren());
     }
 
-    public function nestedReferenceProvider(): array
+    public static function nestedReferenceProvider(): array
     {
         $baseURL = 'https://raw.githubusercontent.com/wol-soft/php-json-schema-model-generator/master/tests/Schema/';
 
@@ -442,9 +444,8 @@ class ReferencePropertyTest extends AbstractPHPModelGeneratorTestCase
         ];
     }
 
-    /**
-     * @dataProvider nonResolvableExternalReferenceProvider
-     */
+    #[DataProvider('nonResolvableExternalReferenceProvider')]
+    #[WithoutErrorHandler]
     public function testNonResolvableExternalReference(string $id, string $reference): void
     {
         $this->expectException(SchemaException::class);
@@ -455,7 +456,7 @@ class ReferencePropertyTest extends AbstractPHPModelGeneratorTestCase
         $this->generateClassFromFileTemplate('NestedExternalReference.json', [$id, $reference]);
     }
 
-    public function nonResolvableExternalReferenceProvider(): array
+    public static function nonResolvableExternalReferenceProvider(): array
     {
         $baseURL = 'https://raw.githubusercontent.com/wol-soft/php-json-schema-model-generator/master/tests/Schema/';
 
@@ -492,12 +493,11 @@ class ReferencePropertyTest extends AbstractPHPModelGeneratorTestCase
     }
 
     /**
-     * @dataProvider validBaseReferenceObjectInputProvider
-     *
      * @throws FileSystemException
      * @throws RenderException
      * @throws SchemaException
      */
+    #[DataProvider('validBaseReferenceObjectInputProvider')]
     public function testValidBaseReference(
         string $reference,
         ?array $input,
@@ -511,10 +511,10 @@ class ReferencePropertyTest extends AbstractPHPModelGeneratorTestCase
         $this->assertSame($input, ($object->getRawModelDataInput()));
     }
 
-    public function validBaseReferenceObjectInputProvider(): array
+    public static function validBaseReferenceObjectInputProvider(): array
     {
-        return $this->combineDataProvider(
-            array_merge($this->internalReferenceProvider(), $this->externalReferenceProvider()),
+        return self::combineDataProvider(
+            array_merge(self::internalReferenceProvider(), self::externalReferenceProvider()),
             [
                 'Empty object' => [[]],
                 'Object with one property' => [['name' => 'Hannes']],
@@ -524,14 +524,195 @@ class ReferencePropertyTest extends AbstractPHPModelGeneratorTestCase
         );
     }
 
+    // -------------------------------------------------------------------------
+    // T1: Two schemas in the same base dir both use an out-of-base-dir fragment
+    //     ref pointing to the same file. The second schema must reuse the
+    //     ExternalSchema from the global processedFileSchemas dedup without
+    //     re-parsing the file or producing a duplicate class.
+    // -------------------------------------------------------------------------
+
+    public function testOutOfBaseDirFragmentRefReusedAcrossMultipleReferrers(): void
+    {
+        $namespace = 'T1OutOfBaseDirRef';
+        $this->generateDirectory('OutOfBaseDirFragmentRefMultipleReferrers', $this->directoryConfig($namespace));
+
+        $schemaAClass = "\\{$namespace}\\SchemaA";
+        $schemaBClass = "\\{$namespace}\\SchemaB";
+
+        $objectA = new $schemaAClass(['person' => ['name' => 'Alice', 'age' => 30]]);
+        $objectB = new $schemaBClass(['person' => ['name' => 'Bob', 'age' => 25]]);
+
+        $this->assertSame('Alice', $objectA->getPerson()->getName());
+        $this->assertSame('Bob', $objectB->getPerson()->getName());
+
+        // Both schemas resolve the same ref; the person objects must share one class
+        $this->assertSame(
+            $objectA->getPerson()::class,
+            $objectB->getPerson()::class,
+            'Both schemas must resolve the out-of-base-dir ref to the same class',
+        );
+    }
+
+    // -------------------------------------------------------------------------
+    // T2: Two schemas in the same base dir both reference the same in-base-dir
+    //     file. The second schema's $ref must reuse the already-registered
+    //     canonical class via processedFileSchemas.
+    // -------------------------------------------------------------------------
+
+    public function testMultipleReferrersToSharedInBaseDirFileProduceSingleClass(): void
+    {
+        $namespace = 'T2SharedInBaseDirRef';
+        $this->generateDirectory('MultipleReferrersSharedInBaseDirFile', $this->directoryConfig($namespace));
+
+        $schemaAClass = "\\{$namespace}\\SchemaA";
+        $schemaBClass = "\\{$namespace}\\SchemaB";
+        $personClass  = "\\{$namespace}\\Person";
+
+        $objectA = new $schemaAClass(['person' => ['name' => 'Alice']]);
+        $objectB = new $schemaBClass(['person' => ['name' => 'Bob']]);
+
+        $this->assertInstanceOf($personClass, $objectA->getPerson());
+        $this->assertInstanceOf($personClass, $objectB->getPerson());
+
+        $this->assertSame(
+            $objectA->getPerson()::class,
+            $objectB->getPerson()::class,
+            'Both schemas must share the same canonical Person class',
+        );
+    }
+
+    // -------------------------------------------------------------------------
+    // T3: A file has both a top-level type:object definition and a definitions
+    //     section. One schema refs the file top-level, another refs a fragment.
+    //     Both must resolve to correct classes.
+    // -------------------------------------------------------------------------
+
+    public function testTopLevelAndFragmentRefToBothWorkCorrectly(): void
+    {
+        $namespace = 'T3TopLevelAndFragment';
+        $this->generateDirectory('TopLevelAndFragmentRef', $this->directoryConfig($namespace));
+
+        $employeeClass = "\\{$namespace}\\Employee";
+        $personClass   = "\\{$namespace}\\PersonWithHistory";
+
+        $employee = new $employeeClass([
+            'profile' => ['name' => 'Alice', 'age' => 30],
+            'home'    => ['street' => '123 Main St', 'city' => 'Springfield'],
+        ]);
+
+        // Top-level ref resolves to canonical PersonWithHistory class
+        $this->assertInstanceOf($personClass, $employee->getProfile());
+        $this->assertSame('Alice', $employee->getProfile()->getName());
+
+        // Fragment ref resolves to the definitions/address inline schema
+        $this->assertNotNull($employee->getHome());
+        $this->assertSame('123 Main St', $employee->getHome()->getStreet());
+    }
+
+    // -------------------------------------------------------------------------
+    // T5: BasereferenceProcessor with an in-base-dir external file. A schema
+    //     with a root-level $ref to another in-base-dir file must merge the
+    //     referenced schema's properties into itself.
+    // -------------------------------------------------------------------------
+
+    public function testBaseRefToInBaseDirFileMergesProperties(): void
+    {
+        $namespace = 'T5BaseDirBaseRef';
+        $this->generateDirectory('BaseDirBaseRef', $this->directoryConfig($namespace));
+
+        $locationClass = "\\{$namespace}\\Location";
+
+        $location = new $locationClass(['street' => '42 Elm St', 'city' => 'Shelbyville']);
+
+        // Properties from Address.json must be merged directly into Location
+        $this->assertSame('42 Elm St', $location->getStreet());
+        $this->assertSame('Shelbyville', $location->getCity());
+    }
+
+    public function testBaseRefToInBaseDirFileEnforcesRequiredProperty(): void
+    {
+        $this->expectException(ValidationException::class);
+        $this->expectExceptionMessage('Missing required value for street');
+
+        $namespace = 'T5BaseDirBaseRefRequired';
+        $this->generateDirectory('BaseDirBaseRef', $this->directoryConfig($namespace));
+
+        $locationClass = "\\{$namespace}\\Location";
+        new $locationClass(['city' => 'Shelbyville']);
+    }
+
+    // -------------------------------------------------------------------------
+    // T6: $ref inside allOf/anyOf/oneOf pointing to an in-base-dir external
+    //     file. The referenced file must resolve to the canonical class.
+    // -------------------------------------------------------------------------
+
+    public function testAllOfRefToInBaseDirFile(): void
+    {
+        $namespace = 'T6AllOfRef';
+        $this->generateDirectory('CompositionInBaseDirRef', $this->directoryConfig($namespace));
+
+        $allOfClass = "\\{$namespace}\\AllOfRef";
+        $object = new $allOfClass(['label' => 'urgent']);
+
+        // allOf with $ref Tag.json: label property must be merged in and required
+        $this->assertSame('urgent', $object->getLabel());
+    }
+
+    public function testAllOfRefToInBaseDirFileEnforcesTagValidation(): void
+    {
+        $this->expectException(ValidationException::class);
+        $this->expectExceptionMessageMatches('/declined by composition constraint/');
+
+        $namespace = 'T6AllOfRefValidation';
+        $this->generateDirectory('CompositionInBaseDirRef', $this->directoryConfig($namespace));
+
+        $allOfClass = "\\{$namespace}\\AllOfRef";
+        new $allOfClass([]);
+    }
+
+    public function testAnyOfRefToInBaseDirFileAcceptsTagInstance(): void
+    {
+        $namespace = 'T6AnyOfRef';
+        $this->generateDirectory('CompositionInBaseDirRef', $this->directoryConfig($namespace));
+
+        $anyOfClass = "\\{$namespace}\\AnyOfRef";
+        $tagClass   = "\\{$namespace}\\Tag";
+
+        $object = new $anyOfClass(['tag' => ['label' => 'feature']]);
+
+        $this->assertInstanceOf($tagClass, $object->getTag());
+        $this->assertSame('feature', $object->getTag()->getLabel());
+    }
+
+    public function testOneOfRefToInBaseDirFileAcceptsTagInstance(): void
+    {
+        $namespace = 'T6OneOfRef';
+        $this->generateDirectory('CompositionInBaseDirRef', $this->directoryConfig($namespace));
+
+        $oneOfClass = "\\{$namespace}\\OneOfRef";
+        $tagClass   = "\\{$namespace}\\Tag";
+
+        $object = new $oneOfClass(['tag' => ['label' => 'bugfix']]);
+
+        $this->assertInstanceOf($tagClass, $object->getTag());
+        $this->assertSame('bugfix', $object->getTag()->getLabel());
+    }
+
+    private function directoryConfig(string $namespace): GeneratorConfiguration
+    {
+        return (new GeneratorConfiguration())
+            ->setNamespacePrefix($namespace)
+            ->setOutputEnabled(false)
+            ->setCollectErrors(false);
+    }
+
     public function testMultiplePropertiesWithIdenticalReference(): void
     {
         $className = $this->generateClassFromFile('multiplePropertiesIdenticalReference.json');
 
         $object = new $className([
             'personA' => ['name' => 'Hannes'],
-            'personB' => ['name' => 'Susi']],
-        );
+            'personB' => ['name' => 'Susi']],);
 
         $this->assertTrue(is_callable([$object, 'getPersonA']));
         $this->assertTrue(is_callable([$object, 'getPersonB']));
@@ -548,9 +729,7 @@ class ReferencePropertyTest extends AbstractPHPModelGeneratorTestCase
         $this->assertSame('Susi', $object->getPersonB()->getName());
     }
 
-    /**
-     * @dataProvider invalidValuesForMultiplePropertiesWithIdenticalReferenceDataProvider
-     */
+    #[DataProvider('invalidValuesForMultiplePropertiesWithIdenticalReferenceDataProvider')]
     public function testInvalidValuesForMultiplePropertiesWithIdenticalReferenceThrowsAnException(
         array $input,
         string $exceptionMessage,
@@ -566,7 +745,8 @@ class ReferencePropertyTest extends AbstractPHPModelGeneratorTestCase
         new $className($input);
     }
 
-    public function invalidValuesForMultiplePropertiesWithIdenticalReferenceDataProvider(): array {
+    public static function invalidValuesForMultiplePropertiesWithIdenticalReferenceDataProvider(): array
+    {
         return [
             'Invalid value for personA' => [
                 ['personA' => 10],

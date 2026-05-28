@@ -23,18 +23,26 @@ declare(strict_types = 1);
  * If you need to implement something in this class use inheritance. Else you will lose your changes if the classes
  * are re-generated.
  */
+{% foreach schema.getAttributes() as attribute %}
+#[{{ attribute.render() }}]
+{% endforeach %}
 class {{ schema.getClassName() }} {% if schema.getInterfaces() %}implements {{ viewHelper.joinClassNames(schema.getInterfaces()) }}{% endif %}
 {
     {% if schema.getTraits() %}use {{ viewHelper.joinClassNames(schema.getTraits()) }};{% endif %}
 
     {% foreach schema.getProperties() as property %}
-        /**{% if viewHelper.getTypeHintAnnotation(property, true) %} @var {{ viewHelper.getTypeHintAnnotation(property, true) }}{% endif %}{% if property.getDescription() %} {{ property.getDescription() }}{% endif %} */{{ viewHelper.getSerializationAttribute(property) }}
+        {% foreach property.getAttributes() as attribute %}
+            #[{{ attribute.render() }}]
+        {% endforeach %}
+        /**{% if viewHelper.getTypeHintAnnotation(property, true) %} @var {{ viewHelper.getTypeHintAnnotation(property, true) }}{% endif %}{% if property.getDescription() %} {{ property.getDescription() }}{% endif %} */
         {% if property.isInternal() %}private{% else %}protected{% endif %} ${{ property.getAttribute(true) }}{% if not viewHelper.isNull(property.getDefaultValue()) %} = {{ property.getDefaultValue() }}{% endif %};
     {% endforeach %}
+    #[Internal]
     /** @var array */
     protected $_rawModelDataInput = [];
 
     {% if generatorConfiguration.collectErrors() %}
+        #[Internal]
         /** @var {{ viewHelper.getSimpleClassName(generatorConfiguration.getErrorRegistryClass()) }} Collect all validation errors */
         protected $_errorRegistry;
     {% endif %}
@@ -102,20 +110,23 @@ class {{ schema.getClassName() }} {% if schema.getInterfaces() %}implements {{ v
 
     {% foreach schema.getProperties() as property %}
         {% if not property.isInternal() %}
-            /**
-             * Get the value of {{ property.getName() }}.
-             *
-             * {% if property.getDescription() %}{{ property.getDescription() }}{% endif %}
-             *
-             * {% if viewHelper.getTypeHintAnnotation(property, true) %}@return {{ viewHelper.getTypeHintAnnotation(property, true) }}{% endif %}
-             */
-            public function get{{ viewHelper.ucfirst(property.getAttribute()) }}()
-                {% if property.getType(true) %}: {{ viewHelper.getType(property, true) }}{% endif %}
-            {
-                {{ schemaHookResolver.resolveGetterHook(property) }}
+            {% if not property.isWriteOnly() %}
+                /**
+                 * Get the value of {{ property.getName() }}.
+                 *{% if property.getDescription() %}
+                 * {{ property.getDescription() }}{% endif %}{% if property.getComment() %}
+                 * {{ property.getComment() }}{% endif %}{% foreach property.getExamples() as example %}
+                 * @example {{ viewHelper.exportValue(example) }}{% endforeach %}
+                 *
+                 * {% if viewHelper.getTypeHintAnnotation(property, true) %}@return {{ viewHelper.getTypeHintAnnotation(property, true) }}{% endif %}
+                 */
+                public function get{{ viewHelper.ucfirst(property.getAttribute()) }}(): {{ viewHelper.getType(property, true) }}
+                {
+                    {{ schemaHookResolver.resolveGetterHook(property) }}
 
-                return $this->{{ property.getAttribute(true) }};
-            }
+                    return $this->{{ property.getAttribute(true) }};
+                }
+            {% endif %}
 
             {% if not property.isReadOnly() %}
                 /**

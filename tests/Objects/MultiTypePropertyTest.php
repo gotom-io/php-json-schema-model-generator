@@ -14,6 +14,7 @@ use PHPModelGenerator\Model\GeneratorConfiguration;
 use PHPModelGenerator\Tests\AbstractPHPModelGeneratorTestCase;
 use PHPModelGenerator\Exception\ValidationException;
 use stdClass;
+use PHPUnit\Framework\Attributes\DataProvider;
 
 /**
  * Class MultiTypePropertyTest
@@ -35,9 +36,7 @@ class MultiTypePropertyTest extends AbstractPHPModelGeneratorTestCase
         $this->assertNull($object->getProperty());
     }
 
-    /**
-     * @dataProvider implicitNullDataProvider
-     */
+    #[DataProvider('implicitNullDataProvider')]
     public function testOptionalMultiTypeAnnotation(bool $implicitNull): void
     {
         $className = $this->generateClassFromFile(
@@ -58,13 +57,17 @@ class MultiTypePropertyTest extends AbstractPHPModelGeneratorTestCase
         $this->assertSame($expectedAnnotation, $this->getPropertyTypeAnnotation($className, 'property'));
         $this->assertSame($expectedAnnotation, $this->getReturnTypeAnnotation($className, 'getProperty'));
 
-        $this->assertNull($this->getParameterType($className, 'setProperty'));
-        $this->assertNull($this->getReturnType($className, 'getProperty'));
+        $this->assertEqualsCanonicalizing(
+            $implicitNull ? ['float', 'string', 'array', 'null'] : ['float', 'string', 'array'],
+            $this->getParameterTypeNames($className, 'setProperty'),
+        );
+        $this->assertEqualsCanonicalizing(
+            ['float', 'string', 'array', 'null'],
+            $this->getReturnTypeNames($className, 'getProperty'),
+        );
     }
 
-    /**
-     * @dataProvider implicitNullDataProvider
-     */
+    #[DataProvider('implicitNullDataProvider')]
     public function testRequiredMultiTypeAnnotation(bool $implicitNull): void
     {
         $className = $this->generateClassFromFile(
@@ -81,13 +84,43 @@ class MultiTypePropertyTest extends AbstractPHPModelGeneratorTestCase
         $this->assertSame($expectedAnnotation, $this->getPropertyTypeAnnotation($className, 'property'));
         $this->assertSame($expectedAnnotation, $this->getReturnTypeAnnotation($className, 'getProperty'));
 
-        $this->assertNull($this->getParameterType($className, 'setProperty'));
-        $this->assertNull($this->getReturnType($className, 'getProperty'));
+        $this->assertEqualsCanonicalizing(
+            ['float', 'string', 'array'],
+            $this->getParameterTypeNames($className, 'setProperty'),
+        );
+        $this->assertEqualsCanonicalizing(
+            ['float', 'string', 'array'],
+            $this->getReturnTypeNames($className, 'getProperty'),
+        );
     }
 
-    /**
-     * @dataProvider validValueDataProvider
-     */
+    public function testNullableMultiTypeAnnotation(): void
+    {
+        $className = $this->generateClassFromFile(
+            'NullableMultiTypeProperty.json',
+            (new GeneratorConfiguration())->setImmutable(false),
+        );
+
+        // Native hint: ?string (single non-null type, nullable=true from explicit 'null' in type array)
+        $this->assertEqualsCanonicalizing(
+            ['string', 'null'],
+            $this->getReturnTypeNames($className, 'getProperty'),
+        );
+        $this->assertEqualsCanonicalizing(
+            ['string', 'null'],
+            $this->getParameterTypeNames($className, 'setProperty'),
+        );
+
+        // null is a valid value (it is a listed type)
+        $object = new $className(['property' => null]);
+        $this->assertNull($object->getProperty());
+
+        // string is a valid value
+        $object = new $className(['property' => 'hello']);
+        $this->assertSame('hello', $object->getProperty());
+    }
+
+    #[DataProvider('validValueDataProvider')]
     public function testValidProvidedValuePassesValidation(mixed $propertyValue): void
     {
         $className = $this->generateClassFromFile('MultiTypeProperty.json');
@@ -96,7 +129,7 @@ class MultiTypePropertyTest extends AbstractPHPModelGeneratorTestCase
         $this->assertEquals($propertyValue, $object->getProperty());
     }
 
-    public function validValueDataProvider(): array
+    public static function validValueDataProvider(): array
     {
         return [
             'Null' => [null],
@@ -107,9 +140,7 @@ class MultiTypePropertyTest extends AbstractPHPModelGeneratorTestCase
         ];
     }
 
-    /**
-     * @dataProvider invalidValueDataProvider
-     */
+    #[DataProvider('invalidValueDataProvider')]
     public function testInvalidProvidedValueThrowsAnException(mixed $propertyValue, string $exceptionMessage): void
     {
         $this->expectException(ValidationException::class);
@@ -120,7 +151,7 @@ class MultiTypePropertyTest extends AbstractPHPModelGeneratorTestCase
         new $className(['property' => $propertyValue]);
     }
 
-    public function invalidValueDataProvider(): array
+    public static function invalidValueDataProvider(): array
     {
         return [
             'Bool' => [true, 'Invalid type for property. Requires [float, string, array], got boolean'],
@@ -141,9 +172,7 @@ ERROR
         ];
     }
 
-    /**
-     * @dataProvider nestedObjectDataProvider
-     */
+    #[DataProvider('nestedObjectDataProvider')]
     public function testValidNestedObjectInMultiTypePropertyIsValidWithNestedObjectProvided(
         ?array $propertyValue,
         ?string $expected,
@@ -160,7 +189,7 @@ ERROR
         }
     }
 
-    public function nestedObjectDataProvider(): array
+    public static function nestedObjectDataProvider(): array
     {
         return [
             'not provided' => [null, null],
@@ -178,9 +207,7 @@ ERROR
         $this->assertSame('Hello', $object->getProperty());
     }
 
-    /**
-     * @dataProvider invalidNestedObjectDataProvider
-     */
+    #[DataProvider('invalidNestedObjectDataProvider')]
     public function testInvalidNestedObjectInMultiTypePropertyThrowsAnException(
         array $propertyValue,
         string $exceptionMessage,
@@ -193,7 +220,7 @@ ERROR
         new $className(['property' => $propertyValue]);
     }
 
-    public function invalidNestedObjectDataProvider(): array
+    public static function invalidNestedObjectDataProvider(): array
     {
         return [
             'invalid type' => [
@@ -213,9 +240,7 @@ ERROR
         ];
     }
 
-    /**
-     * @dataProvider validRecursiveMultiTypeDataProvider
-     */
+    #[DataProvider('validRecursiveMultiTypeDataProvider')]
     public function testValidRecursiveMultiType(string|array $input): void
     {
 
@@ -225,7 +250,7 @@ ERROR
         $this->assertSame($input, $object->getProperty());
     }
 
-    public function validRecursiveMultiTypeDataProvider(): array
+    public static function validRecursiveMultiTypeDataProvider(): array
     {
         return [
             'string'       => ['Test'],
@@ -234,9 +259,7 @@ ERROR
         ];
     }
 
-    /**
-     * @dataProvider invalidRecursiveMultiTypeDataProvider
-     */
+    #[DataProvider('invalidRecursiveMultiTypeDataProvider')]
     public function testInvalidRecursiveMultiType(
         int|array $input,
         string $expectedException,
@@ -250,7 +273,7 @@ ERROR
         new $className(['property' => $input]);
     }
 
-    public function invalidRecursiveMultiTypeDataProvider(): array
+    public static function invalidRecursiveMultiTypeDataProvider(): array
     {
         return [
             'int' => [
@@ -262,7 +285,7 @@ ERROR
                 ['Test1', 1],
                 InvalidItemException::class,
                 <<<ERROR
-Invalid items in array item of array property:
+Invalid items in array property:
   - invalid item #1
     * Invalid type for item of array property. Requires [string, array], got integer
 ERROR
@@ -276,9 +299,9 @@ ERROR
                 ['Test1', [3, 'Test3']],
                 InvalidItemException::class,
                 <<<ERROR
-Invalid items in array item of array property:
+Invalid items in array property:
   - invalid item #1
-    * Invalid items in array item of array property:
+    * Invalid items in array property:
       - invalid item #0
         * Invalid type for item of array property. Requires [string, array], got integer
 ERROR
@@ -287,7 +310,7 @@ ERROR
                 ['Test1', []],
                 InvalidItemException::class,
                 <<<ERROR
-Invalid items in array item of array property:
+Invalid items in array property:
   - invalid item #1
     * Array item of array property must not contain less than 2 items
 ERROR

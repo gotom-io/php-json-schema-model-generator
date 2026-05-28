@@ -11,6 +11,7 @@ use PHPModelGenerator\Exception\SchemaException;
 use PHPModelGenerator\Model\GeneratorConfiguration;
 use PHPModelGenerator\Tests\AbstractPHPModelGeneratorTestCase;
 use stdClass;
+use PHPUnit\Framework\Attributes\DataProvider;
 
 /**
  * Class TupleArrayPropertyTest
@@ -19,11 +20,9 @@ use stdClass;
  */
 class TupleArrayPropertyTest extends AbstractPHPModelGeneratorTestCase
 {
-    /**
-     * @dataProvider validIncompleteTupleArrayDataProvider
-     * @dataProvider validTupleArrayDataProvider
-     * @dataProvider validTupleArrayWithAdditionalPropertiesDataProvider
-     */
+    #[DataProvider('validIncompleteTupleArrayDataProvider')]
+    #[DataProvider('validTupleArrayDataProvider')]
+    #[DataProvider('validTupleArrayWithAdditionalPropertiesDataProvider')]
     public function testValidValuesForTupleArray(GeneratorConfiguration $configuration, array $propertyValue): void
     {
         $className = $this->generateClassFromFile('TupleArray.json', $configuration);
@@ -44,13 +43,19 @@ class TupleArrayPropertyTest extends AbstractPHPModelGeneratorTestCase
             $this->assertSame($propertyValue[2]['name'], $object->getProperty()[2]->getName());
             $this->assertSame($propertyValue[2]['age'] ?? null, $object->getProperty()[2]->getAge());
             $this->assertSame($propertyValue[2], $object->getProperty()[2]->getRawModelDataInput());
+            $this->assertClassHasJsonPointer($object->getProperty()[2], '/properties/property/items/2');
+            $this->assertPropertyHasJsonPointer(
+                $object->getProperty()[2],
+                'name',
+                '/properties/property/items/2/properties/name',
+            );
         }
     }
 
-    public function validIncompleteTupleArrayDataProvider(): array
+    public static function validIncompleteTupleArrayDataProvider(): array
     {
-        return $this->combineDataProvider(
-            $this->validationMethodDataProvider(),
+        return self::combineDataProvider(
+            self::validationMethodDataProvider(),
             [
                 'empty array' => [[]],
                 'only one value' => [[4]],
@@ -59,10 +64,10 @@ class TupleArrayPropertyTest extends AbstractPHPModelGeneratorTestCase
         );
     }
 
-    public function validTupleArrayDataProvider(): array
+    public static function validTupleArrayDataProvider(): array
     {
-        return $this->combineDataProvider(
-            $this->validationMethodDataProvider(),
+        return self::combineDataProvider(
+            self::validationMethodDataProvider(),
             [
                 'minimal object' => [[3, 'Street', ['name' => 'Hans']]],
                 'full object' => [[400, 'Avenue', ['name' => 'Hans', 'age' => 42]]],
@@ -71,11 +76,11 @@ class TupleArrayPropertyTest extends AbstractPHPModelGeneratorTestCase
         );
     }
 
-    public function validTupleArrayWithAdditionalPropertiesDataProvider(): array
+    public static function validTupleArrayWithAdditionalPropertiesDataProvider(): array
     {
         $tuples = [];
 
-        foreach ($this->validTupleArrayDataProvider() as $key => $tuple) {
+        foreach (self::validTupleArrayDataProvider() as $key => $tuple) {
             $tuple[1][] = 'additionalProperty';
             $tuples[$key . ' - with additional property'] = $tuple;
         };
@@ -83,9 +88,7 @@ class TupleArrayPropertyTest extends AbstractPHPModelGeneratorTestCase
         return $tuples;
     }
 
-    /**
-     * @dataProvider validTupleArrayWithAdditionalPropertiesDataProvider
-     */
+    #[DataProvider('validTupleArrayWithAdditionalPropertiesDataProvider')]
     public function testValidValuesForTupleArrayWithDisabledAdditionalItemsThrowsAnException(
         GeneratorConfiguration $configuration,
         array $propertyValue,
@@ -100,9 +103,7 @@ class TupleArrayPropertyTest extends AbstractPHPModelGeneratorTestCase
         new $className(['property' => $propertyValue]);
     }
 
-    /**
-     * @dataProvider invalidTupleArrayDataProvider
-     */
+    #[DataProvider('invalidTupleArrayDataProvider')]
     public function testInvalidValuesForTupleArrayThrowsAnException(
         GeneratorConfiguration $configuration,
         array $propertyValue,
@@ -115,10 +116,10 @@ class TupleArrayPropertyTest extends AbstractPHPModelGeneratorTestCase
         new $className(['property' => $propertyValue]);
     }
 
-    public function invalidTupleArrayDataProvider(): array
+    public static function invalidTupleArrayDataProvider(): array
     {
-        return $this->combineDataProvider(
-            $this->validationMethodDataProvider(),
+        return self::combineDataProvider(
+            self::validationMethodDataProvider(),
             [
                 'not all elements invalid type' => [
                     [400, ''],
@@ -194,9 +195,7 @@ ERROR
         );
     }
 
-    /**
-     * @dataProvider validAdditionalItemsDataProvider
-     */
+    #[DataProvider('validAdditionalItemsDataProvider')]
     public function testValidAdditionalItems(GeneratorConfiguration $configuration, array $propertyValue): void
     {
         $className = $this->generateClassFromFile('TupleArrayAdditionalItems.json', $configuration);
@@ -208,10 +207,10 @@ ERROR
         }
     }
 
-    public function validAdditionalItemsDataProvider(): array
+    public static function validAdditionalItemsDataProvider(): array
     {
-        return $this->combineDataProvider(
-            $this->validationMethodDataProvider(),
+        return self::combineDataProvider(
+            self::validationMethodDataProvider(),
             [
                 'No additional items' => [[3, 'Avenue']],
                 'One additional item' => [[3, 'Avenue', 'aBc']],
@@ -221,12 +220,11 @@ ERROR
     }
 
     /**
-     * @dataProvider invalidAdditionalItemsDataProvider
-     *
      * @throws FileSystemException
      * @throws RenderException
      * @throws SchemaException
      */
+    #[DataProvider('invalidAdditionalItemsDataProvider')]
     public function testInvalidAdditionalItems(
         GeneratorConfiguration $configuration,
         array $propertyValue,
@@ -239,7 +237,7 @@ ERROR
         new $className(['property' => $propertyValue]);
     }
 
-    public function invalidAdditionalItemsDataProvider(): array
+    public static function invalidAdditionalItemsDataProvider(): array
     {
         $exception = <<<ERROR
 Tuple array property contains invalid additional items.
@@ -247,8 +245,8 @@ Tuple array property contains invalid additional items.
     * %s
 ERROR;
 
-        return $this->combineDataProvider(
-            $this->validationMethodDataProvider(),
+        return self::combineDataProvider(
+            self::validationMethodDataProvider(),
             [
                 'invalid type for additional item (null)' => [
                     [3, 'Avenue', null],
@@ -290,9 +288,7 @@ ERROR
         );
     }
 
-    /**
-     * @dataProvider validObjectAdditionalItemsDataProvider
-     */
+    #[DataProvider('validObjectAdditionalItemsDataProvider')]
     public function testValidObjectAdditionalItems(GeneratorConfiguration $configuration, array $propertyValue): void
     {
         $className = $this->generateClassFromFile('TupleArrayObjectsAsAdditionalItems.json', $configuration);
@@ -304,10 +300,10 @@ ERROR
         }
     }
 
-    public function validObjectAdditionalItemsDataProvider(): array
+    public static function validObjectAdditionalItemsDataProvider(): array
     {
-        return $this->combineDataProvider(
-            $this->validationMethodDataProvider(),
+        return self::combineDataProvider(
+            self::validationMethodDataProvider(),
             [
                 'No additional items' => [[3, 'Avenue']],
                 'Additional item minimum object' => [[3, 'Avenue', ['name' => 'Hans']]],
@@ -329,12 +325,11 @@ ERROR
     }
 
     /**
-     * @dataProvider invalidObjectAdditionalItemsDataProvider
-     *
      * @throws FileSystemException
      * @throws RenderException
      * @throws SchemaException
      */
+    #[DataProvider('invalidObjectAdditionalItemsDataProvider')]
     public function testInvalidObjectAdditionalItems(
         GeneratorConfiguration $configuration,
         array $propertyValue,
@@ -347,7 +342,7 @@ ERROR
         new $className(['property' => $propertyValue]);
     }
 
-    public function invalidObjectAdditionalItemsDataProvider(): array
+    public static function invalidObjectAdditionalItemsDataProvider(): array
     {
         $exception = <<<ERROR
 Tuple array property contains invalid additional items.
@@ -355,8 +350,8 @@ Tuple array property contains invalid additional items.
     * %s
 ERROR;
 
-        return $this->combineDataProvider(
-            $this->validationMethodDataProvider(),
+        return self::combineDataProvider(
+            self::validationMethodDataProvider(),
             [
                 'invalid type for additional item (null)' => [
                     [3, 'Avenue', null],
@@ -398,9 +393,7 @@ ERROR
         );
     }
 
-    /**
-     * @dataProvider validRecursiveTupleDataProvider
-     */
+    #[DataProvider('validRecursiveTupleDataProvider')]
     public function testValidRecursiveTuple(array $input): void
     {
         $className = $this->generateClassFromFile('RecursiveTupleArray.json');
@@ -410,7 +403,7 @@ ERROR
         $this->assertSame($input, $object->getProperty());
     }
 
-    public function validRecursiveTupleDataProvider(): array
+    public static function validRecursiveTupleDataProvider(): array
     {
         return [
             'string' => [['abc', 'def']],
@@ -419,9 +412,7 @@ ERROR
         ];
     }
 
-    /**
-     * @dataProvider invalidRecursiveTupleDataProvider
-     */
+    #[DataProvider('invalidRecursiveTupleDataProvider')]
     public function testInvalidRecursiveTuple(array $input): void
     {
         $this->expectException(InvalidTupleException::class);
@@ -431,7 +422,7 @@ ERROR
         new $className(['property' => $input]);
     }
 
-    public function invalidRecursiveTupleDataProvider(): array
+    public static function invalidRecursiveTupleDataProvider(): array
     {
         return [
             'invalid first tuple' => [[1, 'def']],

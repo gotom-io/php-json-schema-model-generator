@@ -12,6 +12,16 @@ class TypeConverter
             'boolean' => 'bool',
             'integer' => 'int',
             'double' => 'float',
+            'NULL' => 'null',
+        ][$type] ?? $type;
+    }
+
+    public static function jsonSchemaToPHP(string $type): string
+    {
+        return [
+            'integer' => 'int',
+            'number'  => 'float',
+            'boolean' => 'bool',
         ][$type] ?? $type;
     }
 }

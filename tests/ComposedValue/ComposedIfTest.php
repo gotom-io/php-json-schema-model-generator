@@ -10,6 +10,7 @@ use PHPModelGenerator\Exception\RenderException;
 use PHPModelGenerator\Exception\SchemaException;
 use PHPModelGenerator\Model\GeneratorConfiguration;
 use PHPModelGenerator\Tests\AbstractPHPModelGeneratorTestCase;
+use PHPUnit\Framework\Attributes\DataProvider;
 
 /**
  * Class ComposedIfTest
@@ -18,9 +19,7 @@ use PHPModelGenerator\Tests\AbstractPHPModelGeneratorTestCase;
  */
 class ComposedIfTest extends AbstractPHPModelGeneratorTestCase
 {
-    /**
-     * @dataProvider conditionalKeywordsDataProvider
-     */
+    #[DataProvider('conditionalKeywordsDataProvider')]
     public function testIncompleteConditionalsOnPropertyLevelResolveToProperties(string $keyword): void
     {
         $className = $this->generateClassFromFileTemplate('IncompleteConditionalOnPropertyLevel.json', [$keyword]);
@@ -31,7 +30,7 @@ class ComposedIfTest extends AbstractPHPModelGeneratorTestCase
         $this->assertSame('Hello', $object->$getter());
     }
 
-    public function conditionalKeywordsDataProvider(): array
+    public static function conditionalKeywordsDataProvider(): array
     {
         return [
             'if' => ['if'],
@@ -40,18 +39,17 @@ class ComposedIfTest extends AbstractPHPModelGeneratorTestCase
         ];
     }
 
-    /**
-     * @dataProvider validConditionalPropertyDefinitionDataProvider
-     */
+    #[DataProvider('validConditionalPropertyDefinitionDataProvider')]
     public function testConditionalPropertyDefinition(int $value): void
     {
         $className = $this->generateClassFromFile('ConditionalPropertyDefinition.json');
 
         $object = new $className(['property' => $value]);
         $this->assertSame($value, $object->getProperty());
+        $this->assertPropertyHasJsonPointer($object, 'property', '/properties/property');
     }
 
-    public function validConditionalPropertyDefinitionDataProvider(): array
+    public static function validConditionalPropertyDefinitionDataProvider(): array
     {
         return [
             'zero' => [0],
@@ -63,10 +61,9 @@ class ComposedIfTest extends AbstractPHPModelGeneratorTestCase
         ];
     }
 
-    /**
-     * @dataProvider invalidConditionalPropertyDefinitionDataProvider
-     */
-    public function testInvalidConditionalPropertyDefinition(int $value, string $expectedExceptionMessage): void {
+    #[DataProvider('invalidConditionalPropertyDefinitionDataProvider')]
+    public function testInvalidConditionalPropertyDefinition(int $value, string $expectedExceptionMessage): void
+    {
         $this->expectException(ConditionalException::class);
         $this->expectExceptionMessage($expectedExceptionMessage);
 
@@ -74,7 +71,7 @@ class ComposedIfTest extends AbstractPHPModelGeneratorTestCase
         new $className(['property' => $value]);
     }
 
-    public function invalidConditionalPropertyDefinitionDataProvider(): array
+    public static function invalidConditionalPropertyDefinitionDataProvider(): array
     {
         return [
             'invalid negative' => [
@@ -109,9 +106,7 @@ ERROR
         ];
     }
 
-    /**
-     * @dataProvider validConditionalObjectPropertyDataProvider
-     */
+    #[DataProvider('validConditionalObjectPropertyDataProvider')]
     public function testConditionalObjectProperty(
         string $schemaFile,
         GeneratorConfiguration $configuration,
@@ -132,7 +127,7 @@ ERROR
         $this->assertSame($postalCode, $object->getPostalCode());
     }
 
-    public function objectLevelConditionalSchemaDataProvider(): array
+    public static function objectLevelConditionalSchemaDataProvider(): array
     {
         return [
             'Object top level conditional composition' => ['ConditionalObjectProperty.json'],
@@ -140,12 +135,12 @@ ERROR
         ];
     }
 
-    public function validConditionalObjectPropertyDataProvider(): array
+    public static function validConditionalObjectPropertyDataProvider(): array
     {
-        return $this->combineDataProvider(
-            $this->objectLevelConditionalSchemaDataProvider(),
-            $this->combineDataProvider(
-                $this->validationMethodDataProvider(),
+        return self::combineDataProvider(
+            static::objectLevelConditionalSchemaDataProvider(),
+            self::combineDataProvider(
+                self::validationMethodDataProvider(),
                 [
                     'not provided postal code' => ['1600 Pennsylvania Avenue NW', 'USA', null],
                     'USA postal code' => ['1600 Pennsylvania Avenue NW', 'USA', '20500'],
@@ -156,12 +151,11 @@ ERROR
     }
 
     /**
-     * @dataProvider invalidConditionalObjectPropertyDataProvider
-     *
      * @throws FileSystemException
      * @throws RenderException
      * @throws SchemaException
      */
+    #[DataProvider('invalidConditionalObjectPropertyDataProvider')]
     public function testInvalidConditionalObjectPropertyThrowsAnException(
         string $schemaFile,
         GeneratorConfiguration $configuration,
@@ -183,12 +177,12 @@ ERROR
         ]);
     }
 
-    public function invalidConditionalObjectPropertyDataProvider(): array
+    public static function invalidConditionalObjectPropertyDataProvider(): array
     {
-        return $this->combineDataProvider(
-            $this->objectLevelConditionalSchemaDataProvider(),
-            $this->combineDataProvider(
-                $this->validationMethodDataProvider(),
+        return self::combineDataProvider(
+            static::objectLevelConditionalSchemaDataProvider(),
+            self::combineDataProvider(
+                self::validationMethodDataProvider(),
                 [
                     'empty provided postal code' => ['1600 Pennsylvania Avenue NW', 'USA', ''],
                     'Canadian postal code for USA' => ['1600 Pennsylvania Avenue NW', 'USA', 'K1M 1M4'],
@@ -205,5 +199,107 @@ ERROR
         $this->expectExceptionMessage('Incomplete conditional composition for property');
 
         $this->generateClassFromFile('IncompleteConditional.json');
+    }
+
+    public function testCrossTypedThenElseProducesUnionHint(): void
+    {
+        $className = $this->generateClassFromFile(
+            'CrossTypedThenElse.json',
+            (new GeneratorConfiguration())->setImmutable(false),
+        );
+
+        $this->assertEqualsCanonicalizing(
+            ['int', 'string', 'null'],
+            $this->getParameterTypeNames($className, 'setAge'),
+        );
+        $this->assertEqualsCanonicalizing(
+            ['int', 'string', 'null'],
+            $this->getReturnTypeNames($className, 'getAge'),
+        );
+    }
+
+    public function testCrossTypedThenOnlyProducesNullableHint(): void
+    {
+        $className = $this->generateClassFromFile(
+            'CrossTypedThenOnly.json',
+            (new GeneratorConfiguration())->setImmutable(false),
+        );
+
+        $this->assertSame(
+            ['int', 'null'],
+            $this->getParameterTypeNames($className, 'setAge'),
+        );
+        $this->assertSame(
+            ['int', 'null'],
+            $this->getReturnTypeNames($className, 'getAge'),
+        );
+    }
+
+    public function testSameTypeIsNotWidened(): void
+    {
+        $className = $this->generateClassFromFile(
+            'SameTypeThenElse.json',
+            (new GeneratorConfiguration())->setImmutable(false),
+        );
+
+        $this->assertSame(
+            ['int', 'null'],
+            $this->getParameterTypeNames($className, 'setAge'),
+        );
+        $this->assertSame(
+            ['int', 'null'],
+            $this->getReturnTypeNames($className, 'getAge'),
+        );
+    }
+
+    public function testIfOnlyPropertyIsTransferredToParentSchema(): void
+    {
+        $className = $this->generateClassFromFile(
+            'IfOnlyProperty.json',
+            (new GeneratorConfiguration())->setImmutable(false),
+        );
+
+        // 'qualifier' is defined only in the if block — it must be transferred as a nullable mixed
+        // property because the if condition can receive any additional property value when the
+        // then branch applies (then allows additional properties).
+        $this->assertSame('mixed', $this->getReturnType($className, 'getQualifier')->getName());
+        $this->assertSame('mixed', $this->getParameterType($className, 'setQualifier')->getName());
+
+        // 'value' is from the then-only branch with no other data branch — not widened
+        $this->assertSame(['int', 'null'], $this->getReturnTypeNames($className, 'getValue'));
+        $this->assertSame(['int', 'null'], $this->getParameterTypeNames($className, 'setValue'));
+
+        // Both properties are accessible from a constructed object
+        $object = new $className(['qualifier' => 'test', 'value' => 42]);
+        $this->assertSame('test', $object->getQualifier());
+        $this->assertSame(42, $object->getValue());
+        $this->assertPropertyHasJsonPointer($object, 'qualifier', '/if/properties/qualifier');
+        $this->assertPropertyHasJsonPointer($object, 'value', '/then/properties/value');
+    }
+
+    public function testExclusiveBranchPropertiesAreTransferred(): void
+    {
+        $className = $this->generateClassFromFile(
+            'ExclusiveBranchProperties.json',
+            (new GeneratorConfiguration())->setImmutable(false),
+        );
+
+        // 'kind' is only in if block — transferred as mixed (then allows additional properties)
+        $this->assertSame('mixed', $this->getReturnType($className, 'getKind')->getName());
+
+        // 'amount' is exclusive to then; else allows additional properties — widened to mixed
+        $this->assertSame('mixed', $this->getReturnType($className, 'getAmount')->getName());
+
+        // 'label' is exclusive to else; then allows additional properties — widened to mixed
+        $this->assertSame('mixed', $this->getReturnType($className, 'getLabel')->getName());
+
+        // All properties are accessible
+        $object = new $className(['kind' => 'numeric', 'amount' => 5, 'label' => 'hello']);
+        $this->assertSame('numeric', $object->getKind());
+        $this->assertSame(5, $object->getAmount());
+        $this->assertSame('hello', $object->getLabel());
+        $this->assertPropertyHasJsonPointer($object, 'kind', '/if/properties/kind');
+        $this->assertPropertyHasJsonPointer($object, 'amount', '/then/properties/amount');
+        $this->assertPropertyHasJsonPointer($object, 'label', '/else/properties/label');
     }
 }

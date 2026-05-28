@@ -5,9 +5,13 @@ declare(strict_types=1);
 namespace PHPModelGenerator\Tests\Basic;
 
 use PHPModelGenerator\Exception\Object\AdditionalPropertiesException;
+use PHPModelGenerator\Interfaces\JSONModelInterface;
 use PHPModelGenerator\Model\GeneratorConfiguration;
+use PHPModelGenerator\ModelGenerator;
+use PHPModelGenerator\SchemaProcessor\PostProcessor\AdditionalPropertiesAccessorPostProcessor;
 use PHPModelGenerator\Tests\AbstractPHPModelGeneratorTestCase;
 use stdClass;
+use PHPUnit\Framework\Attributes\DataProvider;
 
 /**
  * Class AdditionalPropertiesTest
@@ -16,9 +20,7 @@ use stdClass;
  */
 class AdditionalPropertiesTest extends AbstractPHPModelGeneratorTestCase
 {
-    /**
-     * @dataProvider additionalPropertiesDataProvider
-     */
+    #[DataProvider('additionalPropertiesDataProvider')]
     public function testAdditionalPropertiesAreIgnoredByDefault(array $propertyValue): void
     {
         $className = $this->generateClassFromFile('AdditionalPropertiesNotDefined.json');
@@ -28,9 +30,7 @@ class AdditionalPropertiesTest extends AbstractPHPModelGeneratorTestCase
         $this->assertSame($propertyValue['age'] ?? null, $object->getAge());
     }
 
-    /**
-     * @dataProvider additionalPropertiesDataProvider
-     */
+    #[DataProvider('additionalPropertiesDataProvider')]
     public function testAdditionalPropertiesAreIgnoredWhenSetToTrue(array $propertyValue): void
     {
         $className = $this->generateClassFromFileTemplate(
@@ -45,7 +45,7 @@ class AdditionalPropertiesTest extends AbstractPHPModelGeneratorTestCase
         $this->assertSame($propertyValue['age'] ?? null, $object->getAge());
     }
 
-    public function additionalPropertiesDataProvider():array
+    public static function additionalPropertiesDataProvider(): array
     {
         return [
             'all properties plus additional property' => [['name' => 'test', 'age' => 24, 'additional' => 'ignored']],
@@ -54,9 +54,7 @@ class AdditionalPropertiesTest extends AbstractPHPModelGeneratorTestCase
         ];
     }
 
-    /**
-     * @dataProvider definedPropertiesDataProvider
-     */
+    #[DataProvider('definedPropertiesDataProvider')]
     public function testDefinedPropertiesAreAcceptedWhenSetToFalse(array $propertyValue): void
     {
         $className = $this->generateClassFromFileTemplate('AdditionalProperties.json', ['false']);
@@ -66,7 +64,7 @@ class AdditionalPropertiesTest extends AbstractPHPModelGeneratorTestCase
         $this->assertSame($propertyValue['age'] ?? null, $object->getAge());
     }
 
-    public function definedPropertiesDataProvider():array
+    public static function definedPropertiesDataProvider(): array
     {
         return [
             'all properties' => [['name' => 'test', 'age' => 24]],
@@ -75,9 +73,7 @@ class AdditionalPropertiesTest extends AbstractPHPModelGeneratorTestCase
         ];
     }
 
-    /**
-     * @dataProvider additionalPropertiesDataProvider
-     */
+    #[DataProvider('additionalPropertiesDataProvider')]
     public function testAdditionalPropertiesThrowAnExceptionWhenSetToFalse(array $propertyValue): void
     {
         $this->expectException(AdditionalPropertiesException::class);
@@ -90,9 +86,7 @@ class AdditionalPropertiesTest extends AbstractPHPModelGeneratorTestCase
         new $className($propertyValue);
     }
 
-    /**
-     * @dataProvider additionalPropertiesDataProvider
-     */
+    #[DataProvider('additionalPropertiesDataProvider')]
     public function testAdditionalPropertiesThrowAnExceptionWhenNotDefinedAndDeniedByGeneratorConfiguration(
         array $propertyValue,
     ): void {
@@ -109,9 +103,7 @@ class AdditionalPropertiesTest extends AbstractPHPModelGeneratorTestCase
         new $className($propertyValue);
     }
 
-    /**
-     * @dataProvider validTypedAdditionalPropertiesDataProvider
-     */
+    #[DataProvider('validTypedAdditionalPropertiesDataProvider')]
     public function testValidTypedAdditionalPropertiesAreValid(
         GeneratorConfiguration $generatorConfiguration,
         array $propertyValue,
@@ -126,10 +118,10 @@ class AdditionalPropertiesTest extends AbstractPHPModelGeneratorTestCase
         }
     }
 
-    public function validTypedAdditionalPropertiesDataProvider(): array
+    public static function validTypedAdditionalPropertiesDataProvider(): array
     {
-        return $this->combineDataProvider(
-            $this->validationMethodDataProvider(),
+        return self::combineDataProvider(
+            self::validationMethodDataProvider(),
             [
                 'no provided values' => [[]],
                 'only defined property' => [['id' => 12]],
@@ -139,9 +131,7 @@ class AdditionalPropertiesTest extends AbstractPHPModelGeneratorTestCase
         );
     }
 
-    /**
-     * @dataProvider invalidTypedAdditionalPropertiesDataProvider
-     */
+    #[DataProvider('invalidTypedAdditionalPropertiesDataProvider')]
     public function testInvalidTypedAdditionalPropertiesThrowsAnException(
         GeneratorConfiguration $generatorConfiguration,
         array $propertyValue,
@@ -153,7 +143,7 @@ class AdditionalPropertiesTest extends AbstractPHPModelGeneratorTestCase
         new $className($propertyValue);
     }
 
-    public function invalidTypedAdditionalPropertiesDataProvider(): array
+    public static function invalidTypedAdditionalPropertiesDataProvider(): array
     {
         $exception = <<<ERROR
 contains invalid additional properties.
@@ -161,8 +151,8 @@ contains invalid additional properties.
     * %s
 ERROR;
 
-        return $this->combineDataProvider(
-            $this->validationMethodDataProvider(),
+        return self::combineDataProvider(
+            self::validationMethodDataProvider(),
             [
                 'invalid type for additional property (null)' => [
                     ['additional1' => null, 'additional2' => 'Hello'],
@@ -204,13 +194,15 @@ ERROR;
         );
     }
 
-    /**
-     * @dataProvider validAdditionalPropertiesObjectsDataProvider
-     */
+    #[DataProvider('validAdditionalPropertiesObjectsDataProvider')]
     public function testValidAdditionalPropertiesObjectsAreValid(
         GeneratorConfiguration $generatorConfiguration,
         array $propertyValue,
     ): void {
+        $this->modifyModelGenerator = static function (ModelGenerator $generator): void {
+            $generator->addPostProcessor(new AdditionalPropertiesAccessorPostProcessor());
+        };
+
         $className = $this->generateClassFromFile('AdditionalPropertiesObject.json', $generatorConfiguration);
 
         $object = new $className($propertyValue);
@@ -219,12 +211,21 @@ ERROR;
         foreach ($propertyValue as $key => $value) {
             $this->assertSame($value, $object->getRawModelDataInput()[$key]);
         }
+
+        // Verify JSON pointer for additional property object instances when present
+        $additionalInstance = $object->getAdditionalProperty('additional1')
+            ?? $object->getAdditionalProperty('additional2')
+            ?? null;
+        if ($additionalInstance instanceof JSONModelInterface) {
+            $this->assertClassHasJsonPointer($additionalInstance, '/additionalProperties');
+            $this->assertPropertyHasJsonPointer($additionalInstance, 'name', '/additionalProperties/properties/name');
+        }
     }
 
-    public function validAdditionalPropertiesObjectsDataProvider(): array
+    public static function validAdditionalPropertiesObjectsDataProvider(): array
     {
-        return $this->combineDataProvider(
-            $this->validationMethodDataProvider(),
+        return self::combineDataProvider(
+            self::validationMethodDataProvider(),
             [
                 'no provided values' => [[]],
                 'only defined property' => [['id' => 12]],
@@ -241,9 +242,7 @@ ERROR;
         );
     }
 
-    /**
-     * @dataProvider invalidAdditionalPropertiesObjectsDataProvider
-     */
+    #[DataProvider('invalidAdditionalPropertiesObjectsDataProvider')]
     public function testInvalidAdditionalPropertiesObjectsThrowsAnException(
         GeneratorConfiguration $generatorConfiguration,
         array $propertyValue,
@@ -255,7 +254,7 @@ ERROR;
         new $className($propertyValue);
     }
 
-    public function invalidAdditionalPropertiesObjectsDataProvider(): array
+    public static function invalidAdditionalPropertiesObjectsDataProvider(): array
     {
         $exception = <<<ERROR
 contains invalid additional properties.
@@ -263,8 +262,8 @@ contains invalid additional properties.
     * %s
 ERROR;
 
-        return $this->combineDataProvider(
-            $this->validationMethodDataProvider(),
+        return self::combineDataProvider(
+            self::validationMethodDataProvider(),
             [
                 'invalid type for additional property (null)' => [
                     ['additional1' => null, 'additional2' => ['name' => 'AB', 'age' => 12]],

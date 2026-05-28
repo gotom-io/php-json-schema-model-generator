@@ -12,6 +12,7 @@ use PHPModelGenerator\Model\GeneratorConfiguration;
 use PHPModelGenerator\Tests\AbstractPHPModelGeneratorTestCase;
 use ReflectionMethod;
 use stdClass;
+use PHPUnit\Framework\Attributes\DataProvider;
 
 /**
  * Class ComposedAllOfTest
@@ -20,9 +21,7 @@ use stdClass;
  */
 class ComposedAllOfTest extends AbstractPHPModelGeneratorTestCase
 {
-    /**
-     * @dataProvider validEmptyAllOfDataProvider
-     */
+    #[DataProvider('validEmptyAllOfDataProvider')]
     public function testEmptyAllOfIsValid(mixed $propertyValue): void
     {
         $className = $this->generateClassFromFile('EmptyAllOf.json');
@@ -32,7 +31,7 @@ class ComposedAllOfTest extends AbstractPHPModelGeneratorTestCase
         $this->assertSame(['property' => $propertyValue], $object->getRawModelDataInput());
     }
 
-    public function validEmptyAllOfDataProvider(): array
+    public static function validEmptyAllOfDataProvider(): array
     {
         return [
             'null' => [null],
@@ -43,9 +42,7 @@ class ComposedAllOfTest extends AbstractPHPModelGeneratorTestCase
         ];
     }
 
-    /**
-     * @dataProvider propertyLevelAllOfSchemaFileDataProvider
-     */
+    #[DataProvider('propertyLevelAllOfSchemaFileDataProvider')]
     public function testNotProvidedPropertyLevelAllOfIsValid(string $schema): void
     {
         $className = $this->generateClassFromFile($schema);
@@ -54,7 +51,7 @@ class ComposedAllOfTest extends AbstractPHPModelGeneratorTestCase
         $this->assertNull($object->getProperty());
     }
 
-    public function propertyLevelAllOfSchemaFileDataProvider(): array
+    public static function propertyLevelAllOfSchemaFileDataProvider(): array
     {
         return [
             'Property level composition' => ['ExtendedPropertyDefinition.json'],
@@ -80,9 +77,7 @@ class ComposedAllOfTest extends AbstractPHPModelGeneratorTestCase
         new $className([]);
     }
 
-    /**
-     * @dataProvider implicitNullDataProvider
-     */
+    #[DataProvider('implicitNullDataProvider')]
     public function testCompositionTypes(bool $implicitNull): void
     {
         $className = $this->generateClassFromFile(
@@ -129,6 +124,8 @@ class ComposedAllOfTest extends AbstractPHPModelGeneratorTestCase
         $object = new $className([]);
         $this->assertEmpty($object->getIntegerProperty());
         $this->assertEmpty($object->getStringProperty());
+        $this->assertPropertyHasJsonPointer($object, 'stringProperty', '/allOf/0/properties/stringProperty');
+        $this->assertPropertyHasJsonPointer($object, 'integerProperty', '/allOf/1/properties/integerProperty');
     }
 
     public function testAllOfTypePropertyHasTypeAnnotation(): void
@@ -138,16 +135,14 @@ class ComposedAllOfTest extends AbstractPHPModelGeneratorTestCase
         $object = new $className([]);
         $regexp = '/ComposedAllOfTest[\w]*_Merged_[\w]*/';
 
-        $this->assertRegExp($regexp, $this->getPropertyTypeAnnotation($object, 'property'));
-        $this->assertRegExp($regexp, $this->getReturnTypeAnnotation($object, 'getProperty'));
+        $this->assertMatchesRegularExpression($regexp, $this->getPropertyTypeAnnotation($object, 'property'));
+        $this->assertMatchesRegularExpression($regexp, $this->getReturnTypeAnnotation($object, 'getProperty'));
 
         // base class, merged property class and two classes for validating the composition components
         $this->assertCount(4, $this->getGeneratedFiles());
     }
 
-    /**
-     * @dataProvider validComposedPropertyDataProvider
-     */
+    #[DataProvider('validComposedPropertyDataProvider')]
     public function testComposedPropertyDefinitionWithValidValues(?int $propertyValue): void
     {
         $className = $this->generateClassFromFile('ComposedPropertyDefinition.json');
@@ -164,7 +159,7 @@ class ComposedAllOfTest extends AbstractPHPModelGeneratorTestCase
         $this->assertTrue($returnType->allowsNull());
     }
 
-    public function validComposedPropertyDataProvider(): array
+    public static function validComposedPropertyDataProvider(): array
     {
         return [
             'null' => [null],
@@ -173,9 +168,7 @@ class ComposedAllOfTest extends AbstractPHPModelGeneratorTestCase
         ];
     }
 
-    /**
-     * @dataProvider invalidComposedPropertyDataProvider
-     */
+    #[DataProvider('invalidComposedPropertyDataProvider')]
     public function testComposedPropertyDefinitionWithInvalidValuesThrowsAnException(
         int $propertyValue,
         string $exceptionMessage,
@@ -188,7 +181,7 @@ class ComposedAllOfTest extends AbstractPHPModelGeneratorTestCase
         new $className(['property' => $propertyValue]);
     }
 
-    public function invalidComposedPropertyDataProvider(): array
+    public static function invalidComposedPropertyDataProvider(): array
     {
         return [
             'one match - int 4' => [4, 'Invalid value for property declined by composition constraint'],
@@ -198,9 +191,7 @@ class ComposedAllOfTest extends AbstractPHPModelGeneratorTestCase
         ];
     }
 
-    /**
-     * @dataProvider validExtendedPropertyDataProvider
-     */
+    #[DataProvider('validExtendedPropertyDataProvider')]
     public function testExtendedPropertyDefinitionWithValidValues(int|float|null $propertyValue): void
     {
         $className = $this->generateClassFromFile('ExtendedPropertyDefinition.json');
@@ -218,7 +209,7 @@ class ComposedAllOfTest extends AbstractPHPModelGeneratorTestCase
         $this->assertTrue($returnType->allowsNull());
     }
 
-    public function validExtendedPropertyDataProvider(): array
+    public static function validExtendedPropertyDataProvider(): array
     {
         return [
             'null' => [null],
@@ -228,9 +219,7 @@ class ComposedAllOfTest extends AbstractPHPModelGeneratorTestCase
         ];
     }
 
-    /**
-     * @dataProvider invalidExtendedPropertyDataProvider
-     */
+    #[DataProvider('invalidExtendedPropertyDataProvider')]
     public function testExtendedPropertyDefinitionWithInvalidValuesThrowsAnException(
         mixed $propertyValue,
         string $exceptionMessage,
@@ -243,7 +232,7 @@ class ComposedAllOfTest extends AbstractPHPModelGeneratorTestCase
         new $className(['property' => $propertyValue]);
     }
 
-    public function invalidExtendedPropertyDataProvider(): array
+    public static function invalidExtendedPropertyDataProvider(): array
     {
         return [
             'one match - int 12' => [12, 'Invalid value for property declined by composition constraint'],
@@ -259,7 +248,7 @@ class ComposedAllOfTest extends AbstractPHPModelGeneratorTestCase
         ];
     }
 
-    public function composedPropertyWithReferencedSchemaDataProvider(): array
+    public static function composedPropertyWithReferencedSchemaDataProvider(): array
     {
         return [
             'null' => [null],
@@ -278,16 +267,14 @@ class ComposedAllOfTest extends AbstractPHPModelGeneratorTestCase
         $this->assertSame(42, $object->getProperty()->getAge());
     }
 
-    public function referencedPersonDataProvider(): array
+    public static function referencedPersonDataProvider(): array
     {
         return [
             'ReferencedObjectSchema.json' => ['ReferencedObjectSchema.json'],
         ];
     }
 
-    /**
-     * @dataProvider invalidObjectPropertyWithReferencedPersonSchemaDataProvider
-     */
+    #[DataProvider('invalidObjectPropertyWithReferencedPersonSchemaDataProvider')]
     public function testNotMatchingObjectPropertyWithReferencedPersonSchemaThrowsAnException(
         mixed $propertyValue,
     ): void {
@@ -299,7 +286,7 @@ class ComposedAllOfTest extends AbstractPHPModelGeneratorTestCase
         new $className(['property' => $propertyValue]);
     }
 
-    public function invalidObjectPropertyWithReferencedPersonSchemaDataProvider(): array
+    public static function invalidObjectPropertyWithReferencedPersonSchemaDataProvider(): array
     {
         return [
             'int' => [0],
@@ -316,9 +303,7 @@ class ComposedAllOfTest extends AbstractPHPModelGeneratorTestCase
         ];
     }
 
-    /**
-     * @dataProvider invalidObjectPropertyWithReferencedPetSchemaDataProvider
-     */
+    #[DataProvider('invalidObjectPropertyWithReferencedPetSchemaDataProvider')]
     public function testNotMatchingObjectPropertyWithReferencedPetSchemaThrowsAnException(mixed $propertyValue): void
     {
         $this->expectException(ValidationException::class);
@@ -329,7 +314,7 @@ class ComposedAllOfTest extends AbstractPHPModelGeneratorTestCase
         new $className(['property' => $propertyValue]);
     }
 
-    public function invalidObjectPropertyWithReferencedPetSchemaDataProvider(): array
+    public static function invalidObjectPropertyWithReferencedPetSchemaDataProvider(): array
     {
         return [
             'int' => [0],
@@ -344,10 +329,8 @@ class ComposedAllOfTest extends AbstractPHPModelGeneratorTestCase
         ];
     }
 
-    /**
-     * @dataProvider validComposedObjectDataProvider
-     * @dataProvider validComposedObjectWithRequiredPropertiesDataProvider
-     */
+    #[DataProvider('validComposedObjectDataProvider')]
+    #[DataProvider('validComposedObjectWithRequiredPropertiesDataProvider')]
     public function testMatchingPropertyForComposedAllOfObjectIsValid(
         array $input,
         ?string $stringPropertyValue,
@@ -363,7 +346,7 @@ class ComposedAllOfTest extends AbstractPHPModelGeneratorTestCase
         $this->assertCount(3, $this->getGeneratedFiles());
     }
 
-    public function validComposedObjectDataProvider(): array
+    public static function validComposedObjectDataProvider(): array
     {
         return [
             'no properties' => [[], null, null],
@@ -372,10 +355,8 @@ class ComposedAllOfTest extends AbstractPHPModelGeneratorTestCase
         ];
     }
 
-    /**
-     * @dataProvider invalidComposedObjectDataProvider
-     */
-    public function testNotMatchingPropertyForComposedAllOfObjectThrowsAnException(array $input): void
+    #[DataProvider('invalidComposedObjectDataProvider')]
+    public function testNotMatchingPropertyForComposedAllOfObjectThrowsAnException(array $input, mixed $_stringValue = null, mixed $_intValue = null): void
     {
         $this->expectException(ValidationException::class);
 
@@ -384,7 +365,7 @@ class ComposedAllOfTest extends AbstractPHPModelGeneratorTestCase
         new $className($input);
     }
 
-    public function invalidComposedObjectDataProvider(): array
+    public static function invalidComposedObjectDataProvider(): array
     {
         return [
             'both invalid types' => [['integerProperty' => '10', 'stringProperty' => 10]],
@@ -404,11 +385,13 @@ class ComposedAllOfTest extends AbstractPHPModelGeneratorTestCase
 
 
     /**
-     * @dataProvider validComposedObjectWithRequiredPropertiesDataProvider
-     *               Must throw an exception as only one option matches
+     * Must throw an exception as only one option matches
      */
+    #[DataProvider('validComposedObjectWithRequiredPropertiesDataProvider')]
     public function testMatchingPropertyForComposedAllOfObjectWithRequiredPropertiesThrowsAnException(
         array $input,
+        mixed $_stringValue = null,
+        mixed $_intValue = null,
     ): void {
         $this->expectException(ValidationException::class);
 
@@ -417,11 +400,11 @@ class ComposedAllOfTest extends AbstractPHPModelGeneratorTestCase
         new $className($input);
     }
 
-    /**
-     * @dataProvider invalidComposedObjectDataProvider
-     */
+    #[DataProvider('invalidComposedObjectDataProvider')]
     public function testNotMatchingPropertyForComposedAllOfObjectWithRequiredPropertiesThrowsAnException(
         array $input,
+        mixed $_stringValue = null,
+        mixed $_intValue = null,
     ): void {
         $this->expectException(ValidationException::class);
 
@@ -430,7 +413,7 @@ class ComposedAllOfTest extends AbstractPHPModelGeneratorTestCase
         new $className($input);
     }
 
-    public function validComposedObjectWithRequiredPropertiesDataProvider(): array
+    public static function validComposedObjectWithRequiredPropertiesDataProvider(): array
     {
         return [
             'only int property' => [['integerProperty' => 4], null, 4],
@@ -440,9 +423,7 @@ class ComposedAllOfTest extends AbstractPHPModelGeneratorTestCase
         ];
     }
 
-    /**
-     * @dataProvider nestedObjectDataProvider
-     */
+    #[DataProvider('nestedObjectDataProvider')]
     public function testObjectLevelCompositionArrayWithNestedObject(string $schema): void
     {
         $className = $this->generateClassFromFile($schema);
@@ -456,7 +437,7 @@ class ComposedAllOfTest extends AbstractPHPModelGeneratorTestCase
         $this->assertSame(112, $object->getCars()[0]->getPs());
     }
 
-    public function nestedObjectDataProvider(): array
+    public static function nestedObjectDataProvider(): array
     {
         return [
             ['ObjectLevelCompositionNestedObject.json'],
@@ -472,9 +453,7 @@ class ComposedAllOfTest extends AbstractPHPModelGeneratorTestCase
         $this->generateClassFromFile('NoNestedSchema.json');
     }
 
-    /**
-     * @dataProvider validationInSetterDataProvider
-     */
+    #[DataProvider('validationInSetterDataProvider')]
     public function testValidationInSetterMethods(
         GeneratorConfiguration $generatorConfiguration,
         string $exceptionMessageIntegerPropertyInvalid,
@@ -525,7 +504,7 @@ class ComposedAllOfTest extends AbstractPHPModelGeneratorTestCase
         $this->assertSame('Hello again', $object->getStringProperty());
     }
 
-    public function validationInSetterDataProvider(): array
+    public static function validationInSetterDataProvider(): array
     {
         return [
             'Exception Collection' => [
@@ -561,6 +540,35 @@ ERROR
         ];
     }
 
+    /**
+     * An object-level `allOf` schema that also carries non-composition schema-level validators
+     * (here: `minProperties`) must generate correctly and enforce all constraints.
+     *
+     * During SchemaProcessor::transferComposedPropertiesToSchema the base property's validator
+     * list contains both a TypeCheckValidator (from TypeCheckModifier) and a MinProperties
+     * validator — neither of which is an AbstractComposedPropertyValidator — so both are skipped
+     * via the `continue` guard (line 472) before the allOf composition validator is processed.
+     */
+    public function testObjectLevelAllOfWithAdditionalBaseValidatorTransfersProperties(): void
+    {
+        $className = $this->generateClassFromFile('ObjectLevelCompositionWithMinProperties.json');
+
+        // Properties from both allOf branches are accessible.
+        $object = new $className(['name' => 'Alice', 'age' => 30]);
+        $this->assertSame('Alice', $object->getName());
+        $this->assertSame(30, $object->getAge());
+    }
+
+    public function testObjectLevelAllOfWithMinPropertiesRejectsEmptyObject(): void
+    {
+        $this->expectException(ValidationException::class);
+        $this->expectExceptionMessageMatches('/must not contain less than 1 properties/');
+
+        $className = $this->generateClassFromFile('ObjectLevelCompositionWithMinProperties.json');
+
+        new $className([]);
+    }
+
     public function testIdenticalMergedSchemaIsRedirected(): void
     {
         $className = $this->generateClassFromFile(
@@ -579,7 +587,7 @@ ERROR
 
         $this->assertSame($object->getCEO()::class, $object->getCFO()::class);
 
-        $this->assertRegExp(
+        $this->assertMatchesRegularExpression(
             '/ComposedAllOfTest_\w+_Merged_CEO\w+\|null$/',
             $this->getPropertyTypeAnnotation($className, 'ceo'),
         );
@@ -588,7 +596,7 @@ ERROR
             $this->getPropertyTypeAnnotation($className, 'cfo'),
         );
 
-        $this->assertRegExp(
+        $this->assertMatchesRegularExpression(
             '/ComposedAllOfTest_\w+_Merged_CEO\w+\|null$/',
             $this->getParameterTypeAnnotation($className, 'setCeo'),
         );

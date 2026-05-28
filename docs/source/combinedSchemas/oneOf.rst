@@ -68,6 +68,33 @@ The thrown exception will be a *PHPModelGenerator\\Exception\\ComposedValue\\One
     // get the value provided to the property
     public function getProvidedValue()
 
+.. note::
+
+    ``oneOf`` branches can be the boolean literals ``true`` or ``false``.
+
+    - ``true`` branch — treated as an empty schema; always satisfies the branch.
+    - ``false`` branch — can never be satisfied; always-failing branches participate in the
+      composition but never succeed. If all branches are ``false``, any provided value raises a
+      ``OneOfException`` at runtime, and the generator emits a warning at generation time.
+      Absent optional properties are still allowed.
+
 .. hint::
 
     When combining multiple nested objects with an `oneOf` composition a `merged property <mergedProperty.html>`__ will be generated
+
+.. note::
+
+    When a property is also defined in the root ``properties`` section, the root type definition
+    is authoritative. ``oneOf`` branches may add further constraints but will not widen the
+    property's type. When branches define the same property with different types, the generator
+    widens the property to a union type. See
+    `Cross-typed compositions <crossTypedComposition.html>`__ for the full explanation including
+    nullability rules and the ``allOf`` contrast.
+
+.. note::
+
+    For object-level ``oneOf`` compositions, when a property appears in the ``required`` array of
+    **every** branch, the generator promotes that property to non-nullable in the generated class.
+    Exactly one branch applies at runtime; because all branches guarantee the property's presence,
+    the getter can safely be non-nullable. See `Cross-typed compositions <crossTypedComposition.html>`__
+    for the full promotion rules.

@@ -1,6 +1,6 @@
 <?php
 
-declare(strict_types = 1);
+declare(strict_types=1);
 
 namespace PHPModelGenerator\Model\Validator;
 
@@ -29,9 +29,6 @@ class FormatValidator extends AbstractPropertyValidator
         parent::__construct($property, FormatException::class, $exceptionParams);
     }
 
-    /**
-     * Get the source code for the check to perform
-     */
     public function getCheck(): string
     {
         return $this->validator instanceof FormatValidatorFromRegEx

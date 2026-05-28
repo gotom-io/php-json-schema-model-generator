@@ -1,6 +1,6 @@
 <?php
 
-declare(strict_types = 1);
+declare(strict_types=1);
 
 namespace PHPModelGenerator\SchemaProcessor\PostProcessor;
 
@@ -20,13 +20,13 @@ use PHPModelGenerator\Utils\RenderHelper;
  */
 class RenderedMethod implements MethodInterface
 {
-    static private ?Render $renderer = null;
+    private static ?Render $renderer = null;
 
     public function __construct(
-        private Schema $schema,
-        private GeneratorConfiguration $generatorConfiguration,
-        private string $template,
-        private array $templateValues = [],
+        private readonly Schema $schema,
+        private readonly GeneratorConfiguration $generatorConfiguration,
+        private readonly string $template,
+        private readonly array $templateValues = [],
     ) {}
 
     /**

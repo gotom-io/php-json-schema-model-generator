@@ -1,6 +1,6 @@
 <?php
 
-declare(strict_types = 1);
+declare(strict_types=1);
 
 namespace PHPModelGenerator\Model\Validator;
 
@@ -25,7 +25,7 @@ class TypeCheckValidator extends PropertyValidator implements TypeCheckInterface
 
         parent::__construct(
             $property,
-            "!is_$type(\$value)" . ($allowImplicitNull ? ' && $value !== null' : ''),
+            "(!is_$type(\$value) && !\$value instanceof UnitEnum) " . ($allowImplicitNull ? ' && $value !== null' : ''),
             InvalidTypeException::class,
             [$type],
         );

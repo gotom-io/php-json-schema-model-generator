@@ -50,7 +50,7 @@ Possible exception (if eg. 5 is provided, which matches only one subschema):
 .. code-block:: none
 
     Invalid value for example declined by composition constraint.
-      Requires to match one composition element but matched 2 elements.
+      Requires to match all composition elements but matched 1 elements.
       - Composition element #1: Valid
       - Composition element #2: Failed
         * Value for example must be a multiple of 3
@@ -71,3 +71,30 @@ The thrown exception will be a *PHPModelGenerator\\Exception\\ComposedValue\\All
 .. hint::
 
     When combining multiple nested objects with an `allOf` composition a `merged property <mergedProperty.html>`__ will be generated
+
+.. note::
+
+    ``allOf`` branches can be the boolean literals ``true`` or ``false``.
+
+    - ``true`` branch — treated as an empty schema; any value satisfies it and it adds no constraint.
+    - ``false`` branch — makes the whole composition unsatisfiable; any provided value raises an
+      ``AllOfException`` at runtime (the false branch is represented as an always-failing composition
+      element). The generator also emits a warning at generation time. Absent optional properties
+      are still allowed.
+
+.. note::
+
+    When a property is defined in multiple ``allOf`` branches with conflicting types (e.g. one branch
+    requires ``string`` and another requires ``integer``), the generator will throw a ``SchemaException``
+    at generation time. ``allOf`` requires all constraints to hold simultaneously, so conflicting types
+    make the schema unsatisfiable. When branches agree on a type, the generator narrows the property to
+    the intersection of all declared types across branches. See
+    `Cross-typed compositions <crossTypedComposition.html>`__ for the full explanation and a contrast
+    with ``anyOf``/``oneOf`` union widening.
+
+.. note::
+
+    For object-level ``allOf`` compositions, when a property appears in the ``required`` array of
+    **any** branch, the generator promotes that property to non-nullable in the generated class. All
+    ``allOf`` branches must hold simultaneously, so any branch's ``required`` constraint is effectively
+    global. See `Cross-typed compositions <crossTypedComposition.html>`__ for the full promotion rules.

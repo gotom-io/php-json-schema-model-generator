@@ -1,9 +1,11 @@
 <?php
 
-declare(strict_types = 1);
+declare(strict_types=1);
 
 namespace PHPModelGenerator\Model\SchemaDefinition;
 
+use PHPModelGenerator\Exception\GeneratorException;
+use PHPModelGenerator\Exception\SchemaException;
 use PHPModelGenerator\Utils\ArrayHash;
 
 /**
@@ -13,7 +15,7 @@ use PHPModelGenerator\Utils\ArrayHash;
  */
 class JsonSchema
 {
-    private const SCHEMA_SIGNATURE_RELEVANT_FIELDS = [
+    private const array SCHEMA_SIGNATURE_RELEVANT_FIELDS = [
         'type',
         'properties',
         '$ref',
@@ -40,11 +42,18 @@ class JsonSchema
      *
      * @param string $file the source file for the schema
      * @param array $json Decoded json schema
+     * @param string $pointer The JSON pointer inside the $file leading to the schema provided in $json
      */
-    public function __construct(private string $file, array $json)
+    public function __construct(private string $file, array $json, private string $pointer = '')
     {
         // wrap in an allOf to pass the processing to multiple handlers - ugly hack to be removed after rework
-        if (isset($json['$ref']) && count(array_diff(array_intersect(array_keys($json), self::SCHEMA_SIGNATURE_RELEVANT_FIELDS), ['$ref', 'type']))) {
+        if (
+            isset($json['$ref']) &&
+            count(array_diff(
+                array_intersect(array_keys($json), self::SCHEMA_SIGNATURE_RELEVANT_FIELDS),
+                ['$ref', 'type'],
+            ))
+        ) {
             $json = array_merge(
                 array_diff_key($json, array_fill_keys(self::SCHEMA_SIGNATURE_RELEVANT_FIELDS, null)),
                 [
@@ -84,8 +93,51 @@ class JsonSchema
         return $jsonSchema;
     }
 
+    /**
+     * Creates a clone of the JsonSchema object with a subschema,
+     * navigated to the provided $pointer from the current schema.
+     */
+    public function navigate(string | int $pointer): JsonSchema
+    {
+        $trimmed = trim((string) $pointer, '/');
+
+        if ($trimmed === '') {
+            return $this;
+        }
+
+        $jsonSchema = clone $this;
+
+        foreach (explode('/', $trimmed) as $pathSegment) {
+            $jsonSchema->pointer .= "/$pathSegment";
+            $decodedPathSegment = self::decodePointer($pathSegment);
+
+            if (!array_key_exists($decodedPathSegment, $jsonSchema->json)) {
+                throw new SchemaException("Unresolved path segment $pathSegment in file $this->file");
+            }
+
+            $jsonSchema->json = $jsonSchema->json[$decodedPathSegment];
+        }
+
+        return $jsonSchema;
+    }
+
     public function getFile(): string
     {
         return $this->file;
+    }
+
+    public function getPointer(): string
+    {
+        return $this->pointer;
+    }
+
+    public static function encodePointer(string | int $pointer): string
+    {
+        return str_replace(['~', '/'], ['~0', '~1'], (string) $pointer);
+    }
+
+    public static function decodePointer(string | int $pointer): string
+    {
+        return str_replace(['~1', '~0'], ['/', '~'], (string) $pointer);
     }
 }
